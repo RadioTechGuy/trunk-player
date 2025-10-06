@@ -1,52 +1,80 @@
-version: '3.7'
-
 services:
   db:
-    image: postgres
+    image: postgres:16-alpine
+    restart: unless-stopped
     environment:
-      - POSTGRES_DB=tr
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password1234
+      POSTGRES_DB: trunk_player
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password1234}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   app:
     build:
       context: .
-    #image: maxwelldps/trunk-player:latest
+      dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
-      - 80:80
-      - 8443:443
+      - "8001:8000"
     volumes:
-      #- .:/app/trunkplayer
-      - audio:/app/trunkplayer/audio_files
+      - audio:/app/audio_files
+      - static:/app/static
     environment:
-      - DEBUG=True
-      - SQL_ENGINE=django.db.backends.postgresql_psycopg2
-      - SQL_DATABASE=tr
+      - DEBUG=${DEBUG:-True}
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - SQL_ENGINE=django.db.backends.postgresql
+      - SQL_DATABASE=trunk_player
       - SQL_USER=postgres
-      - SQL_PASSWORD=password1234
+      - SQL_PASSWORD=${POSTGRES_PASSWORD:-password1234}
       - SQL_HOST=db
-      - REDIS_URL=redis://127.0.0.1:6379
-      - MIGRATE_DB=1
-      - SECRET_KEY="%2%xjx4c3obf_xa8hsdbd@ci+8!4)@x16_!auo*h(%*p_z(g"
-      - DJANGO_ALLOWED_HOSTS=*
-      - TZ=America/Chicago
-      - FORCE_SECURE=False
-      - ANONYMOUS_TIME=0
-      - SITE_TITLE=TESTING
-      - SITE_EMAIL=no@no.io
-      - AUDIO_URL_BASE=/audio/
-      - ALLOW_ANONYMOUS=False
-      - ACCESS_TG_RESTRICT=False
-      - TALKGROUP_RECENT_LENGTH=0
-      - OPEN_SITE=False
-      - ALLOW_GOOGLE_SIGNIN=False
-      - FIX_AUDIO_NAME=False
-      - TRANS_DATETIME_FORMAT=%H:%M:%S %m/%d/%Y
-      - GOOGLE_ANALYTICS_PROPERTY_ID=0
-      - USE_RAW_ID_FIELDS=False
-
+      - SQL_PORT=5432
+      - REDIS_URL=redis://redis:6379
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-*}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-}
+      - TZ=${TZ:-America/Chicago}
+      - FORCE_SECURE=${FORCE_SECURE:-False}
+      - ANONYMOUS_TIME=${ANONYMOUS_TIME:-43200}
+      - SITE_TITLE=${SITE_TITLE:-Trunk Player}
+      - SITE_EMAIL=${SITE_EMAIL:-help@example.com}
+      - AUDIO_URL_BASE=${AUDIO_URL_BASE:-/media/}
+      - ALLOW_ANONYMOUS=${ALLOW_ANONYMOUS:-False}
+      - ACCESS_TG_RESTRICT=${ACCESS_TG_RESTRICT:-False}
+      - OPEN_REGISTRATION=${OPEN_REGISTRATION:-False}
+      - TALKGROUP_RECENT_LENGTH=${TALKGROUP_RECENT_LENGTH:-15}
+      - FIX_AUDIO_NAME=${FIX_AUDIO_NAME:-False}
+      - ADD_TRANS_AUTH_TOKEN=${ADD_TRANS_AUTH_TOKEN:-change-me-in-production}
+      - FIEF_BASE_URL=${FIEF_BASE_URL:-}
+      - FIEF_CLIENT_ID=${FIEF_CLIENT_ID:-}
+      - FIEF_CLIENT_SECRET=${FIEF_CLIENT_SECRET:-}
+      - FIEF_REDIRECT_URI=${FIEF_REDIRECT_URI:-}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             daphne -b 0.0.0.0 -p 8000 trunk_player.asgi:application"
 
-volumes: 
+volumes:
+  postgres_data:
+  redis_data:
   audio:
+  static:

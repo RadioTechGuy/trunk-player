@@ -1,33 +1,37 @@
-FROM python:3.12
-RUN apt-get update && \
-    apt-get -y install nginx redis-server ssl-cert tzdata && \
-    rm -rf /var/lib/apt/lists/* 
+# Trunk Player v2 - Dockerfile
+FROM python:3.12-slim
 
-RUN mkdir -p /app/trunkplayer
-WORKDIR /app/trunkplayer
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# set environment variables
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
-ENV CRYPTOGRAPHY_DONT_BUILD_RUST=1
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# install dependencies
-ADD requirements.txt /app/trunkplayer
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# Create app directory
+WORKDIR /app
 
-RUN mkdir -p /var/log/trunk-player/
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Make SSL
-RUN make-ssl-cert generate-default-snakeoil --force-overwrite 
+# Create directories
+RUN mkdir -p /app/audio_files /app/static /app/staticfiles
 
-# copy project
-#COPY . .
-ADD . /app/trunkplayer
-RUN rm -f /etc/nginx/sites-enabled/default
-COPY trunk_player/trunk_player.nginx.docker /etc/nginx/conf.d/nginx.conf
+# Copy application code
+COPY . .
 
-EXPOSE 80
-EXPOSE 443
+# Create non-root user
+RUN useradd -m -r appuser && \
+    chown -R appuser:appuser /app
+USER appuser
 
-ENTRYPOINT ["./entrypoint.sh"]
+# Expose port
+EXPOSE 8000
 
+# Default command
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "trunk_player.asgi:application"]
