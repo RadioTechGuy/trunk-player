@@ -1,199 +1,212 @@
-from os import scandir
-from django.contrib import admin
+"""
+Trunk Player v2 - Django Admin Configuration
+"""
+
 from django import forms
+from django.contrib import admin
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 from django.conf import settings
 
-from .models import *
-
-class TalkGroupAdmin(admin.ModelAdmin):
-    search_fields = ['alpha_tag', 'description', 'dec_id']
-    list_display = ('alpha_tag', 'description', 'dec_id', 'system')
-    save_on_top = True
-
-
-class UnitAdmin(admin.ModelAdmin): 
-    search_fields = ['description', 'dec_id' ]
-    list_display = ('description', 'dec_id', 'system' )
-    save_on_top = True
-
-
-class TranmissionUnitInline(admin.TabularInline):
-    model = TranmissionUnit
-    extra = 0 # how many rows to show
-
-class TransmissionAdmin(admin.ModelAdmin):
-    #inlines = (TranmissionUnitInline,)
-    raw_id_fields = ('talkgroup_info', 'units', 'source', 'system')
-    save_on_top = True
+from .models import (
+    System,
+    TalkGroup,
+    Unit,
+    Transmission,
+    TransmissionUnit,
+    Transcription,
+    Plan,
+    TalkGroupAccess,
+    Profile,
+    ScanList,
+    Incident,
+)
 
 
-class SourceInline(admin.TabularInline):
-    model = Source
-    readonly_fields=('id',)
+# =============================================================================
+# INLINE ADMINS
+# =============================================================================
 
-
-class SourceAdmin(admin.ModelAdmin):
-    list_display = ('id','description')
-    list_display_links = ('id','description')
-    #fields = ('id','description')
-    save_on_top = True
-
-    def get_readonly_fields(self, request, obj=None):
-            if obj: # editing an existing object
-                return self.readonly_fields + ('id',)
-            return self.readonly_fields
-
-
-class ScanListAdminForm(forms.ModelForm):
-    talkgroups = forms.ModelMultipleChoiceField(
-        queryset=TalkGroupWithSystem.objects.all(),
-        required=False,
-        widget=FilteredSelectMultiple(
-            verbose_name = 'talkgroups',
-            is_stacked=False
-        )
-    )
-
-    class Meta:
-        model = ScanList
-        fields = "__all__"
-
-    def __init__(self, *args, **kwargs):
-        super(ScanListAdminForm, self).__init__(*args, **kwargs)
-
-        if self.instance and self.instance.pk:
-            self.fields['talkgroups'].initial = self.instance.talkgroups.all()
-    def save(self, commit=True):
-        scanlist = super(ScanListAdminForm, self).save(commit=False)
-
-        if commit:
-            scanlist.save()
-
-        if scanlist.pk:
-            scanlist.talkgroups.set(self.cleaned_data['talkgroups'])
-            self.save_m2m()
-
-        return scanlist
-
-
-class ScanListAdmin(admin.ModelAdmin):
-    form = ScanListAdminForm
-    save_as = True
-    save_on_top = True
-
-class ScanListRawAdmin(admin.ModelAdmin):
-    autocomplete_fields= ('talkgroups',)    
+class TransmissionUnitInline(admin.TabularInline):
+    model = TransmissionUnit
+    extra = 0
+    raw_id_fields = ("unit",)
 
 
 class ProfileInline(admin.StackedInline):
     model = Profile
     can_delete = False
-    verbose_name_plural = 'profile'
+    verbose_name_plural = "Profile"
+    filter_horizontal = ("talkgroup_access",)
 
 
-class UserAdmin(BaseUserAdmin):
-    inlines = (ProfileInline, )
+class TranscriptionInline(admin.StackedInline):
+    model = Transcription
+    can_delete = True
+    extra = 0
 
 
-class TalkGroupAccessAdminForm(forms.ModelForm):
-    talkgroups = forms.ModelMultipleChoiceField(
-        queryset=TalkGroupWithSystem.objects.all(),
-        required=False,
-        widget=FilteredSelectMultiple(
-            verbose_name = 'talkgroups',
-            is_stacked=False
-        )
-    )
+# =============================================================================
+# MODEL ADMINS
+# =============================================================================
 
-    class Meta:
-        model = TalkGroupAccess
-        fields = "__all__"
+@admin.register(System)
+class SystemAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "created_at")
+    search_fields = ("name", "description")
+    prepopulated_fields = {"slug": ("name",)}
+    readonly_fields = ("created_at", "updated_at")
 
-    def __init__(self, *args, **kwargs):
-        super(TalkGroupAccessAdminForm, self).__init__(*args, **kwargs)
 
-        if self.instance and self.instance.pk:
-            self.fields['talkgroups'].initial = self.instance.talkgroups.all()
-    def save(self, commit=True):
-        tglist = super(TalkGroupAccessAdminForm, self).save(commit=False)
-
-        if commit:
-            tglist.save()
-
-        if tglist.pk:
-            tglist.talkgroups.set(self.cleaned_data['talkgroups'])
-            self.save_m2m()
-
-        return tglist
-
-class TalkGroupAccessAdmin(admin.ModelAdmin):
-    form = TalkGroupAccessAdminForm
-    list_display = ('name', 'default_group', 'default_new_talkgroups')
+@admin.register(TalkGroup)
+class TalkGroupAdmin(admin.ModelAdmin):
+    list_display = ("alpha_tag", "dec_id", "system", "is_public", "last_transmission")
+    list_filter = ("system", "is_public")
+    search_fields = ("alpha_tag", "common_name", "description", "dec_id")
+    list_select_related = ("system",)
+    readonly_fields = ("created_at", "updated_at", "recent_usage")
     save_on_top = True
 
-class TalkGroupAccessRawAdmin(admin.ModelAdmin):
-    autocomplete_fields= ('talkgroups',)   
 
-class TranmissionUnitAdmin(admin.ModelAdmin):
+@admin.register(Unit)
+class UnitAdmin(admin.ModelAdmin):
+    list_display = ("dec_id", "description", "unit_type", "system")
+    list_filter = ("system", "unit_type")
+    search_fields = ("description", "dec_id", "unit_number")
+    list_select_related = ("system",)
+    readonly_fields = ("created_at", "updated_at")
+    save_on_top = True
+
+
+@admin.register(Transmission)
+class TransmissionAdmin(admin.ModelAdmin):
+    list_display = (
+        "slug",
+        "talkgroup_info",
+        "start_datetime",
+        "play_length",
+        "emergency",
+        "system",
+    )
+    list_filter = ("system", "emergency", "has_audio")
+    search_fields = ("talkgroup_info__alpha_tag", "talkgroup")
+    list_select_related = ("system", "talkgroup_info")
+    raw_id_fields = ("talkgroup_info", "system")
+    inlines = (TransmissionUnitInline, TranscriptionInline)
+    readonly_fields = ("slug", "created_at")
+    date_hierarchy = "start_datetime"
+    save_on_top = True
+
+
+@admin.register(TransmissionUnit)
+class TransmissionUnitAdmin(admin.ModelAdmin):
+    list_display = ("transmission", "unit", "order")
     raw_id_fields = ("transmission", "unit")
     save_on_top = True
 
 
-class IncidentAdmin(admin.ModelAdmin):
-    raw_id_fields = ("transmissions",)
-    save_on_top = True
+@admin.register(Transcription)
+class TranscriptionAdmin(admin.ModelAdmin):
+    list_display = ("transmission", "is_automated", "confidence", "created_at")
+    list_filter = ("is_automated", "language")
+    search_fields = ("text",)
+    raw_id_fields = ("transmission", "created_by")
+    readonly_fields = ("created_at", "updated_at")
 
-class CityForms(forms.ModelForm):
-    google_maps_url = forms.CharField(max_length=1000)
+
+@admin.register(Plan)
+class PlanAdmin(admin.ModelAdmin):
+    list_display = ("name", "history", "is_default")
+    list_filter = ("is_default",)
+    readonly_fields = ("created_at", "updated_at")
+
+
+class TalkGroupAccessAdminForm(forms.ModelForm):
+    """Custom form for TalkGroupAccess with better M2M widget."""
 
     class Meta:
-        model = City
-        fields = '__all__'
+        model = TalkGroupAccess
+        fields = "__all__"
+        widgets = {
+            "talkgroups": FilteredSelectMultiple(
+                verbose_name="Talkgroups",
+                is_stacked=False,
+            )
+        }
 
 
-    def clean_google_maps_url(self):
-        data = self.cleaned_data.get('google_maps_url', '')
-        parts = data.split('"')
-        new_url = None
-        try:
-          new_url = parts[1]
-        except IndexError:
-          return self
-        return new_url
+@admin.register(TalkGroupAccess)
+class TalkGroupAccessAdmin(admin.ModelAdmin):
+    form = TalkGroupAccessAdminForm
+    list_display = ("name", "default_group", "default_new_talkgroups")
+    list_filter = ("default_group", "default_new_talkgroups")
+    readonly_fields = ("created_at", "updated_at")
+    save_on_top = True
 
-class CityAdmin(admin.ModelAdmin):
-    form = CityForms
-
-class MessagePopUpAdmin(admin.ModelAdmin):
-    list_display = ('mesg_type', 'mesg_html', 'active')
+    class Media:
+        css = {
+            "all": ("admin/css/widgets.css",),
+        }
 
 
-admin.site.register(Transmission, TransmissionAdmin)
-admin.site.register(Unit,UnitAdmin)
-#admin.site.register(TranmissionUnit, TranmissionUnitAdmin)
-admin.site.register(TalkGroup, TalkGroupAdmin)
+class ScanListAdminForm(forms.ModelForm):
+    """Custom form for ScanList with better M2M widget."""
 
-if not settings.USE_RAW_ID_FIELDS:
-    admin.site.register(ScanList, ScanListAdmin)
-    admin.site.register(TalkGroupAccess, TalkGroupAccessAdmin)
-else:
-    admin.site.register(ScanList, ScanListRawAdmin)
-    admin.site.register(TalkGroupAccess, TalkGroupAccessRawAdmin)
-admin.site.register(MenuScanList)
-admin.site.register(MenuTalkGroupList)
-admin.site.register(Source, SourceAdmin)
-admin.site.register(Agency)
-admin.site.register(Plan)
+    class Meta:
+        model = ScanList
+        fields = "__all__"
+        widgets = {
+            "talkgroups": FilteredSelectMultiple(
+                verbose_name="Talkgroups",
+                is_stacked=False,
+            )
+        }
+
+
+@admin.register(ScanList)
+class ScanListAdmin(admin.ModelAdmin):
+    form = ScanListAdminForm
+    list_display = ("name", "created_by", "public", "created_at")
+    list_filter = ("public",)
+    search_fields = ("name", "description")
+    raw_id_fields = ("created_by",)
+    readonly_fields = ("created_at", "updated_at")
+    save_as = True
+    save_on_top = True
+
+    class Media:
+        css = {
+            "all": ("admin/css/widgets.css",),
+        }
+
+
+@admin.register(Incident)
+class IncidentAdmin(admin.ModelAdmin):
+    list_display = ("name", "public", "created_by", "created_at")
+    list_filter = ("public",)
+    search_fields = ("name", "description")
+    raw_id_fields = ("transmissions", "created_by")
+    readonly_fields = ("created_at", "updated_at")
+    save_on_top = True
+
+
+# =============================================================================
+# USER ADMIN WITH PROFILE
+# =============================================================================
+
+class UserAdmin(BaseUserAdmin):
+    inlines = (ProfileInline,)
+    list_display = (
+        "username",
+        "email",
+        "first_name",
+        "last_name",
+        "is_staff",
+        "is_active",
+    )
+
+
+# Re-register User with our custom admin
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
-admin.site.register(System)
-admin.site.register(WebHtml)
-admin.site.register(RepeaterSite)
-admin.site.register(Service)
-admin.site.register(SiteOption)
-admin.site.register(Incident, IncidentAdmin)
-admin.site.register(City, CityAdmin)
-admin.site.register(MessagePopUp, MessagePopUpAdmin)
