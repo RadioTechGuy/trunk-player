@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Scan Lists - {{ SITE_TITLE }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-3 py-4" x-data="{ search: '' }">
+    <div class="flex items-center justify-between mb-3">
+        <h1 class="text-lg font-semibold">Scan Lists</h1>
+        <div class="flex items-center space-x-2">
+            <div class="relative">
+                <input type="text"
+                       x-model="search"
+                       placeholder="Filter scan lists..."
+                       class="pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-48 sm:w-64">
+                <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <button x-show="search" @click="search = ''" class="absolute right-2 top-1.5 text-gray-400 hover:text-gray-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            {% if user.is_authenticated %}
+            <a href="{% url 'scanlist_create' %}" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded text-sm text-white">
+                Create New
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if user.is_authenticated %}
+    <!-- My Scanlists -->
+    <div class="mb-4">
+        <h2 class="text-base font-medium mb-2 text-gray-700">My Scan Lists</h2>
+
+        <div class="bg-white rounded border border-gray-200">
+            {% for scanlist in user_scanlists %}
+            <a href="{% url 'scanlist_detail' slug=scanlist.slug %}"
+               class="block px-3 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
+               x-show="!search || '{{ scanlist.name|lower }} {{ scanlist.description|default:""|lower }}'.includes(search.toLowerCase())"
+               x-cloak>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="font-medium">{{ scanlist.name }}</span>
+                        <span class="text-sm text-gray-400 ml-2">{{ scanlist.talkgroups.count }} talkgroups</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        {% if scanlist.public %}
+                        <span class="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">Public</span>
+                        {% endif %}
+                        <a href="{% url 'scanlist_edit' slug=scanlist.slug %}" class="text-xs text-blue-600 hover:underline">Edit</a>
+                    </div>
+                </div>
+                {% if scanlist.description %}
+                <p class="text-sm text-gray-500 mt-1">{{ scanlist.description }}</p>
+                {% endif %}
+            </a>
+            {% empty %}
+            <div class="px-3 py-6 text-center text-gray-500">
+                You haven't created any scan lists yet.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Public Scanlists -->
+    <div>
+        <h2 class="text-base font-medium mb-2 text-gray-700">Public Scan Lists</h2>
+
+        <div class="bg-white rounded border border-gray-200">
+            {% for scanlist in public_scanlists %}
+            <a href="{% url 'scanlist_detail' slug=scanlist.slug %}"
+               class="block px-3 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
+               x-show="!search || '{{ scanlist.name|lower }} {{ scanlist.description|default:""|lower }} {{ scanlist.created_by.username|lower }}'.includes(search.toLowerCase())"
+               x-cloak>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="font-medium">{{ scanlist.name }}</span>
+                        <span class="text-sm text-gray-400 ml-2">{{ scanlist.talkgroups.count }} talkgroups</span>
+                    </div>
+                    <span class="text-xs text-gray-500">by {{ scanlist.created_by.username }}</span>
+                </div>
+                {% if scanlist.description %}
+                <p class="text-sm text-gray-500 mt-1">{{ scanlist.description }}</p>
+                {% endif %}
+            </a>
+            {% empty %}
+            <div class="px-3 py-6 text-center text-gray-500">
+                No public scan lists available.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} - {{ SITE_TITLE }}{% endblock %}
+
+{% block content %}
+<div x-data="radioPlayer()" x-init="init()" class="max-w-5xl mx-auto">
+    <!-- Compact player bar -->
+    <div class="bg-white border-b border-gray-200 px-3 py-2 sticky top-12 z-40 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <button @click="togglePlayback()"
+                    class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-white">
+                <svg x-show="!isPlaying" class="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                </svg>
+                <svg x-show="isPlaying" x-cloak class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                </svg>
+            </button>
+            <div class="min-w-0">
+                <div class="font-medium truncate" x-text="currentTransmission?.talkgroup_info?.alpha_tag || '{{ page_title }}'"></div>
+                <div class="text-xs text-gray-500" x-text="currentTransmission?.local_start_datetime || ''"></div>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <span class="text-xs text-gray-500" x-text="formatTime(currentTime) + ' / ' + formatTime(duration)"></span>
+            <button @click="scannerMode = !scannerMode"
+                    :class="scannerMode ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700'"
+                    class="px-2 py-1 rounded text-xs font-medium">
+                Scanner
+            </button>
+        </div>
+    </div>
+
+    <!-- Transmission list -->
+    <div class="bg-white">
+        {% for trans in transmissions %}
+        <div id="row-{{ trans.id }}"
+             class="border-t border-gray-200 hover:bg-gray-50 cursor-pointer {% if trans.emergency %}row-emergency{% endif %}"
+             :class="{ 'playing': currentTransmission?.id === {{ trans.id }} }"
+             @click="playTransmission({{ trans.id }}, '{{ trans.audio_url }}', {
+                 id: {{ trans.id }},
+                 talkgroup_info: { alpha_tag: '{{ trans.talkgroup_info.alpha_tag }}', slug: '{{ trans.talkgroup_info.slug }}' },
+                 local_start_datetime: '{{ trans.local_start_datetime }}',
+                 emergency: {{ trans.emergency|yesno:'true,false' }}
+             })">
+            <div class="px-3 py-2">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2 min-w-0">
+                        <button class="flex-shrink-0 w-6 h-6 flex items-center justify-center text-gray-600 hover:text-gray-900">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        </button>
+                        {% if trans.emergency %}
+                        <span class="flex-shrink-0 px-1 py-0.5 text-xs font-medium bg-red-600 text-white rounded">E</span>
+                        {% endif %}
+                        <span class="font-medium">{{ trans.talkgroup_info.alpha_tag }}</span>
+                        <span class="text-gray-400 text-xs">{{ trans.print_play_length }}</span>
+                    </div>
+                    <div class="flex items-center space-x-3 text-xs text-gray-500">
+                        <span class="hidden sm:inline">{{ trans.freq_mhz }} MHz</span>
+                        <span>{{ trans.local_start_datetime }}</span>
+                    </div>
+                </div>
+                {% if trans.units.exists %}
+                <div class="mt-1 text-xs text-gray-500 pl-8">
+                    {% for unit in trans.units.all %}{{ unit.description|default:unit.dec_id }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="px-3 py-8 text-center text-gray-500">
+            No transmissions available
+        </div>
+        {% endfor %}
+    </div>
+
+    <audio x-ref="audio"
+           @timeupdate="updateProgress()"
+           @ended="onEnded()"
+           @loadedmetadata="duration = $refs.audio.duration"></audio>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function radioPlayer() {
+    return {
+        isPlaying: false,
+        currentTime: 0,
+        duration: 0,
+        currentTransmission: null,
+        scannerMode: false,
+
+        init() {
+            const savedVolume = localStorage.getItem('playerVolume');
+            if (savedVolume) {
+                this.$refs.audio.volume = parseInt(savedVolume) / 100;
+            }
+        },
+
+        playTransmission(id, audioUrl, transmission) {
+            this.currentTransmission = transmission;
+            const audio = this.$refs.audio;
+            audio.src = audioUrl;
+            audio.play().then(() => {
+                this.isPlaying = true;
+            }).catch(err => console.error('Playback error:', err));
+        },
+
+        togglePlayback() {
+            const audio = this.$refs.audio;
+            if (this.isPlaying) {
+                audio.pause();
+                this.isPlaying = false;
+            } else if (audio.src) {
+                audio.play();
+                this.isPlaying = true;
+            }
+        },
+
+        updateProgress() {
+            this.currentTime = this.$refs.audio.currentTime;
+        },
+
+        onEnded() {
+            this.isPlaying = false;
+        },
+
+        formatTime(seconds) {
+            if (!seconds || isNaN(seconds)) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+    };
+}
+</script>
+{% endblock %}

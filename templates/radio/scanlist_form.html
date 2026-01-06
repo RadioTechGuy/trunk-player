@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}{{ action }} Scan List - {{ SITE_TITLE }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-3 py-4">
+    <h1 class="text-lg font-semibold mb-3">{{ action }} Scan List</h1>
+
+    <div class="bg-white rounded border border-gray-200 p-4">
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+
+            <div>
+                <label for="id_name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input type="text" name="name" id="id_name" value="{{ form.name.value|default:'' }}" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                {% if form.name.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ form.name.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label for="id_description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea name="description" id="id_description" rows="2"
+                          class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">{{ form.description.value|default:'' }}</textarea>
+            </div>
+
+            <div x-data="{
+                search: '',
+                selectVisible() {
+                    this.$refs.tglist.querySelectorAll('label:not([style*=\'display: none\']) input[type=checkbox]').forEach(cb => cb.checked = true);
+                },
+                deselectVisible() {
+                    this.$refs.tglist.querySelectorAll('label:not([style*=\'display: none\']) input[type=checkbox]').forEach(cb => cb.checked = false);
+                }
+            }">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700">Talkgroups</label>
+                    <div class="flex items-center space-x-2">
+                        <template x-if="search">
+                            <div class="flex items-center space-x-1">
+                                <button type="button" @click="selectVisible()" class="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded">
+                                    Select All
+                                </button>
+                                <span class="text-gray-300">|</span>
+                                <button type="button" @click="deselectVisible()" class="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded">
+                                    Deselect All
+                                </button>
+                            </div>
+                        </template>
+                        <div class="relative">
+                            <input type="text"
+                                   x-model="search"
+                                   placeholder="Filter talkgroups..."
+                                   class="pl-8 pr-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-48">
+                            <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <button type="button" x-show="search" @click="search = ''" class="absolute right-2 top-1 text-gray-400 hover:text-gray-600">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div x-ref="tglist" class="max-h-64 overflow-y-auto border border-gray-200 rounded p-2 space-y-1">
+                    {% for tg in form.talkgroups.field.queryset %}
+                    <label class="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded"
+                           x-show="!search || '{{ tg.alpha_tag|lower }} {{ tg.system.name|lower }} {{ tg.dec_id }}'.includes(search.toLowerCase())">
+                        <input type="checkbox" name="talkgroups" value="{{ tg.pk }}"
+                               {% if tg.pk in form.talkgroups.value %}checked{% endif %}
+                               class="tg-checkbox w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <span class="text-sm">{{ tg.alpha_tag }}</span>
+                        <span class="text-xs text-gray-400">{{ tg.system.name }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" name="public" {% if form.public.value %}checked{% endif %}
+                           class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                    <span class="text-sm">Make this scan list public</span>
+                </label>
+                <p class="mt-1 text-xs text-gray-500 ml-6">Public scan lists can be viewed by other users.</p>
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t border-gray-200">
+                <a href="{% url 'scanlist_list' %}" class="text-sm text-gray-500 hover:text-gray-700">Cancel</a>
+                <button type="submit" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded text-sm text-white font-medium">
+                    {{ action }} Scan List
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

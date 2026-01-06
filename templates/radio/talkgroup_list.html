@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Talkgroups - {{ SITE_TITLE }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-3 py-4" x-data="{ search: '' }">
+    <div class="flex items-center justify-between mb-3">
+        <h1 class="text-lg font-semibold">Talkgroups</h1>
+        <div class="relative">
+            <input type="text"
+                   x-model="search"
+                   placeholder="Filter talkgroups..."
+                   class="pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-48 sm:w-64">
+            <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <button x-show="search" @click="search = ''" class="absolute right-2 top-1.5 text-gray-400 hover:text-gray-600">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    {% for system in systems %}
+    <div class="bg-white rounded border border-gray-200 mb-4">
+        <div class="px-3 py-2 bg-gray-50 border-b border-gray-200 font-medium">
+            {{ system.name }}
+        </div>
+        <table class="w-full text-sm">
+            <tbody class="divide-y divide-gray-100">
+                {% for tg in system.talkgroups.all %}
+                {% if tg in accessible_talkgroups %}
+                <tr class="hover:bg-gray-50"
+                    x-show="!search || '{{ tg.alpha_tag|lower }} {{ tg.dec_id }} {{ tg.common_name|default:""|lower }}'.includes(search.toLowerCase())"
+                    x-cloak>
+                    {% if user.is_authenticated %}
+                    <td class="px-2 py-2 w-8">
+                        <form method="post" action="{% url 'toggle_favorite_talkgroup' slug=tg.slug %}" class="inline">
+                            {% csrf_token %}
+                            <button type="submit" class="p-1 hover:bg-gray-200 rounded" title="{% if tg.pk in user_favorites %}Remove from favorites{% else %}Add to favorites{% endif %}">
+                                {% if tg.pk in user_favorites %}
+                                <svg class="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                </svg>
+                                {% else %}
+                                <svg class="w-4 h-4 text-gray-300 hover:text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+                                </svg>
+                                {% endif %}
+                            </button>
+                        </form>
+                    </td>
+                    {% endif %}
+                    <td class="px-3 py-2 w-20 text-gray-500">{{ tg.dec_id }}</td>
+                    <td class="px-3 py-2">
+                        <a href="{% url 'talkgroup_detail' slug=tg.slug %}" class="text-blue-600 hover:underline font-medium">
+                            {{ tg.alpha_tag }}
+                        </a>
+                        {% if tg.common_name %}
+                        <span class="text-gray-400 ml-2">{{ tg.common_name }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-3 py-2 text-right text-gray-400 text-xs hidden sm:table-cell">
+                        {% if tg.last_transmission %}{{ tg.last_transmission|timesince }} ago{% endif %}
+                    </td>
+                </tr>
+                {% endif %}
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="px-3 py-4 text-gray-500 text-center">No talkgroups</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% empty %}
+    <div class="bg-white rounded border border-gray-200 p-8 text-center text-gray-500">
+        No systems available
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

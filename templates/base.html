@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ SITE_TITLE }}{% endblock %}</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        [x-cloak] { display: none !important; }
+        .row-highlight { background-color: #fef3c7; }
+        .row-emergency { background-color: #fee2e2; border-left: 3px solid #ef4444; }
+        .playing { background-color: #dcfce7; }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-100 text-gray-900 text-sm">
+    <!-- Navbar -->
+    <nav class="bg-gray-800 text-white fixed top-0 left-0 right-0 z-50 h-12">
+        <div class="max-w-7xl mx-auto px-3 h-full flex items-center justify-between">
+            <div class="flex items-center space-x-6">
+                <a href="{% url 'home' %}" class="font-semibold text-base">{{ SITE_TITLE }}</a>
+
+                <div class="hidden md:flex items-center space-x-4 text-sm">
+                    <div x-data="{ open: false }" class="relative">
+                        <button @click="open = !open" class="flex items-center hover:text-gray-300">
+                            Scan Lists
+                            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div x-show="open" @click.away="open = false" x-cloak
+                             class="absolute left-0 mt-2 w-56 bg-white text-gray-800 rounded shadow-lg py-1 z-50">
+                            {% for sl in user_scanlists %}
+                            <a href="{% url 'scanlist_detail' slug=sl.slug %}" class="block px-4 py-2 hover:bg-gray-100 truncate">
+                                {{ sl.name }}
+                            </a>
+                            {% endfor %}
+                            {% if user_scanlists %}
+                            <div class="border-t border-gray-200 mt-1 pt-1"></div>
+                            {% endif %}
+                            <a href="{% url 'scanlist_list' %}" class="block px-4 py-2 hover:bg-gray-100">All Scan Lists</a>
+                            <a href="{% url 'scanlist_create' %}" class="block px-4 py-2 hover:bg-gray-100">Create Scan List</a>
+                        </div>
+                    </div>
+
+                    <div x-data="{ open: false }" class="relative">
+                        <button @click="open = !open" class="flex items-center hover:text-gray-300">
+                            Talk Groups
+                            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div x-show="open" @click.away="open = false" x-cloak
+                             class="absolute left-0 mt-2 w-56 bg-white text-gray-800 rounded shadow-lg py-1 z-50">
+                            {% for tg in favorite_talkgroups %}
+                            <a href="{% url 'talkgroup_detail' slug=tg.slug %}" class="block px-4 py-2 hover:bg-gray-100 truncate">
+                                {{ tg.alpha_tag }}
+                                <span class="text-gray-400 text-xs ml-1">{{ tg.system.name }}</span>
+                            </a>
+                            {% endfor %}
+                            {% if favorite_talkgroups %}
+                            <div class="border-t border-gray-200 mt-1 pt-1"></div>
+                            {% endif %}
+                            <a href="{% url 'talkgroup_list' %}" class="block px-4 py-2 hover:bg-gray-100">All Talkgroups</a>
+                        </div>
+                    </div>
+
+                    <a href="{% url 'incident_list' %}" class="hover:text-gray-300">Incidents</a>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-4 text-sm">
+                {% if user.is_staff %}
+                <a href="{% url 'admin:index' %}" class="hover:text-gray-300">Admin</a>
+                {% endif %}
+                {% if user.is_authenticated %}
+                <a href="{% url 'profile' %}" class="hover:text-gray-300">{{ user.username }}</a>
+                <a href="{% url 'logout' %}" class="hover:text-gray-300">Logout</a>
+                {% else %}
+                <a href="{% url 'login' %}" class="hover:text-gray-300">Login</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="pt-12">
+        {% if messages %}
+        <div class="max-w-7xl mx-auto px-3 py-2">
+            {% for message in messages %}
+            <div class="px-3 py-2 rounded text-sm {% if message.tags == 'error' %}bg-red-100 text-red-800{% elif message.tags == 'success' %}bg-green-100 text-green-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

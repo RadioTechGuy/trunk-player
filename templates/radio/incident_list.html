@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Incidents - {{ SITE_TITLE }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-3 py-4">
+    <h1 class="text-lg font-semibold mb-3">Incidents</h1>
+
+    <div class="bg-white rounded border border-gray-200">
+        {% for incident in incidents %}
+        <a href="{% url 'incident_detail' slug=incident.slug %}" class="block px-3 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="font-medium">{{ incident.name }}</span>
+                    <span class="text-sm text-gray-400 ml-2">{{ incident.transmissions.count }} transmissions</span>
+                </div>
+                <span class="text-xs text-gray-500">{{ incident.created_at|date:"M d, Y" }}</span>
+            </div>
+            {% if incident.description %}
+            <p class="text-sm text-gray-500 mt-1">{{ incident.description|truncatewords:30 }}</p>
+            {% endif %}
+        </a>
+        {% empty %}
+        <div class="px-3 py-8 text-center text-gray-500">
+            No incidents available.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
