@@ -1,63 +1,117 @@
+"""
+Trunk Player v2 - Prune Database Command
+
+Removes old transmissions from the database to manage storage.
+"""
+
 import os
-import sys
-from datetime import datetime
 from datetime import timedelta
-import json
-import pytz
 
-from django.core.management.base import BaseCommand, CommandError
-from django.conf import settings
+from django.core.management.base import BaseCommand
+from django.db import connection, connections, transaction
 from django.utils import timezone
-from django.utils.dateparse import parse_datetime
-from radio.models import *
-from django.db import transaction,connections,connection
 
-db_name = connection.settings_dict['NAME']
-db_engine = connection.vendor
-print('db_name is "%s"' % db_name)
-print('db_engine is "%s"' % db_engine)
+from radio.models import Transmission
+
 
 class Command(BaseCommand):
-    help = 'Prune transmisison table'
+    help = "Remove old transmissions from the database"
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--days',
+            "--days",
             type=int,
-            #action='store_true',
-            #dest='source',
-            default=5,
-            help='Set the number of days older than to prune',
+            default=30,
+            help="Delete transmissions older than this many days (default: 30)",
+        )
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            default=False,
+            help="Show what would be deleted without actually deleting",
+        )
+        parser.add_argument(
+            "--vacuum",
+            action="store_true",
+            default=False,
+            help="Vacuum SQLite database after pruning (SQLite only)",
         )
 
     def handle(self, *args, **options):
-        print('You passed in {}'.format(options['days']))
-        purge_trans(options)
+        days = options["days"]
+        dry_run = options["dry_run"]
+        vacuum = options["vacuum"]
 
+        if days < 1:
+            self.stdout.write(
+                self.style.ERROR("Days must be at least 1")
+            )
+            return
 
+        cutoff_date = timezone.now() - timedelta(days=days)
 
-def purge_trans(options):
+        # Count transmissions to delete
+        transmissions = Transmission.objects.filter(
+            start_datetime__lt=cutoff_date
+        )
+        count = transmissions.count()
 
-    days_opt = options['days']
-    days_default = False
-    if days_opt == -1:
-        days_opt = 0
-        days_default = True
+        if count == 0:
+            self.stdout.write("No transmissions to prune.")
+            return
 
-    t = Transmission.objects.filter(start_datetime__lt=timezone.now() - timedelta(days=days_opt))
-    print('Pruning %s transmissions older than %s days.' % (t.count(), days_opt))
-    t.delete()
-    print('Pruning complete')
-    if 'sqlite' in db_engine:
-        def vacuum_db(using='default'):
-            cursor = connections[using].cursor()
-            cursor.execute("VACUUM")
-            transaction.commit()
+        self.stdout.write(
+            f"Found {count} transmissions older than {days} days"
+        )
 
-        print ("Vacuuming database...")
-        before = os.stat(db_name).st_size
-        print ("Size before: %s bytes" % before)
-        vacuum_db()
-        after = os.stat(db_name).st_size
-        print ("Size after: %s bytes" % after)
-        print ("Reclaimed: %s bytes" % (before - after))
+        if dry_run:
+            self.stdout.write(
+                self.style.WARNING("Dry run - no data will be deleted")
+            )
+
+            # Show sample of what would be deleted
+            sample = transmissions.order_by("start_datetime")[:5]
+            self.stdout.write("\nOldest transmissions that would be deleted:")
+            for t in sample:
+                self.stdout.write(
+                    f"  {t.slug} - {t.start_datetime} - {t.talkgroup_info}"
+                )
+            return
+
+        # Delete transmissions
+        self.stdout.write(f"Deleting {count} transmissions...")
+        deleted, _ = transmissions.delete()
+        self.stdout.write(
+            self.style.SUCCESS(f"Deleted {deleted} transmissions")
+        )
+
+        # Vacuum SQLite if requested
+        db_engine = connection.vendor
+        if vacuum and "sqlite" in db_engine:
+            db_name = connection.settings_dict["NAME"]
+
+            self.stdout.write("Vacuuming SQLite database...")
+            try:
+                before = os.stat(db_name).st_size
+                cursor = connections["default"].cursor()
+                cursor.execute("VACUUM")
+                transaction.commit()
+                after = os.stat(db_name).st_size
+
+                reclaimed = before - after
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"Reclaimed {reclaimed:,} bytes "
+                        f"({before:,} -> {after:,})"
+                    )
+                )
+            except Exception as e:
+                self.stdout.write(
+                    self.style.WARNING(f"Vacuum failed: {e}")
+                )
+        elif vacuum:
+            self.stdout.write(
+                self.style.WARNING(
+                    "Vacuum only supported for SQLite databases"
+                )
+            )
