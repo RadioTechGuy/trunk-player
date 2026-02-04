@@ -1,24 +1,32 @@
+"""
+Trunk Player v2 - ASGI Configuration
+
+Configures Django Channels for WebSocket support.
+"""
+
 import os
-from django.urls import re_path
+
 from django.core.asgi import get_asgi_application
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "trunk_player.settings")
+
+# Initialize Django ASGI application early to ensure apps are loaded
 django_asgi_app = get_asgi_application()
 
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.security.websocket import AllowedHostsOriginValidator
 
-from radio.consumers import RadioConsumer
+from radio.routing import websocket_urlpatterns
 
-channel_layer = ProtocolTypeRouter({
+application = ProtocolTypeRouter({
+    # HTTP requests handled by Django
     "http": django_asgi_app,
 
-    # WebSocket chat handler
-    "websocket": AuthMiddlewareStack(
-        URLRouter([
-            re_path(r"^ws-calls/(?P<tg_type>[^/]+)/(?P<label>[^/]+)", RadioConsumer.as_asgi()),
-            re_path(r"^ws-calls/(?P<tg_type>[^/]+)/$", RadioConsumer.as_asgi()),
-            re_path(r"^ws-calls/$", RadioConsumer.as_asgi())
-        ])
+    # WebSocket connections
+    "websocket": AllowedHostsOriginValidator(
+        AuthMiddlewareStack(
+            URLRouter(websocket_urlpatterns)
+        )
     ),
 })

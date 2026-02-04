@@ -1,15 +1,17 @@
-#from channels.staticfiles import StaticFilesConsumer
-from channels.routing import route
-from . import consumers
+"""
+Trunk Player v2 - WebSocket Routing
+"""
 
-channel_routing = {
-    # This makes Django serve static files from settings.STATIC_URL, similar
-    # to django.views.static.serve. This isn't ideal (not exactly production
-    # quality) but it works for a minimal example.
-    #'http.request': StaticFilesConsumer(),
+from django.urls import re_path
 
-    # Wire up websocket channels to our consumers:
-    'websocket.connect': consumers.ws_connect,
-    'websocket.receive': consumers.ws_receive,
-    'websocket.disconnect': consumers.ws_disconnect,
-}
+from .consumers import RadioConsumer
+
+websocket_urlpatterns = [
+    # Specific channel subscriptions
+    re_path(
+        r"^ws/(?P<channel_type>tg|scan|unit|inc)/(?P<label>[\w-]+)/$",
+        RadioConsumer.as_asgi(),
+    ),
+    # Default channel (all transmissions)
+    re_path(r"^ws/$", RadioConsumer.as_asgi()),
+]

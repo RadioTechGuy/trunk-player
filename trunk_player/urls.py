@@ -1,102 +1,75 @@
-"""trunk_player URL Configuration
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/1.9/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  url(r'^$', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  url(r'^$', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.conf.urls import url, include
-    2. Add a URL to urlpatterns:  url(r'^blog/', include('blog.urls'))
 """
-from django.urls import re_path as url, include
-from django.conf.urls.static import static
+Trunk Player v2 - URL Configuration
+"""
+
 from django.conf import settings
-from django.contrib import admin, auth
-from django.views.generic import TemplateView
-from django.views.generic.base import RedirectView
-from rest_framework import routers
+from django.conf.urls.static import static
+from django.contrib import admin
+from django.urls import include, path
+from django.views.generic import RedirectView
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
+
 from radio import views
-from django.contrib.auth.decorators import login_required
-
-router = routers.DefaultRouter()
-router.register(r'transmission', views.TransmissionViewSet)
-router.register(r'talkgroups', views.TalkGroupViewSet, basename='talkgroups')
-router.register(r'scanlist', views.ScanListViewSet)
-router.register(r'menuscanlist', views.MenuScanListViewSet)
-router.register(r'menutalkgrouplist', views.MenuTalkGroupListViewSet)
-
+from radio.views import pwa_manifest, pwa_service_worker
 
 urlpatterns = [
-    #url('^$', TemplateView.as_view(template_name='radio/index_beta.html')),
-    url('^$', views.Generic, {'page_name': 'index'}, name='index'),
-    url('^', include('django.contrib.auth.urls')),
-    url(r'^accounts/', include('allauth.urls')),
-    url(r'^api_v1/unit/(?P<filter_val>[+\w-]+)/$', views.UnitFilterViewSet.as_view()),
-    url(r'^api_v1/tg/(?P<filter_val>[+\w-]+)/$', views.TalkGroupFilterViewSet.as_view()),
-    url(r'^api_v1/scan/(?P<filter_val>[+\w-]+)/$', views.ScanViewSet.as_view()),
-    url(r'^api_v1/inc/(?P<filter_val>[+\w-]+)/$', views.IncViewSet.as_view()),
-    url(r'^api_v1/message/$', views.MessagePopUpViewSet.as_view()),
-    url(r'^api_v1/', include(router.urls)),
-    url(r'^admin/', admin.site.urls),
-    url(r'^scan/(?P<name>.*)/details/$', views.ScanDetailsList, name='scan_details'),
+    # PWA
+    path("manifest.json", pwa_manifest, name="pwa_manifest"),
+    path("sw.js", pwa_service_worker, name="pwa_service_worker"),
+
+    # Admin
+    path("admin/", admin.site.urls),
+
+    # API v2
+    path("api/v2/", include("radio.api.urls")),
+
+    # API Documentation
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path(
+        "api/docs/",
+        SpectacularSwaggerView.as_view(url_name="schema"),
+        name="swagger-ui",
+    ),
+    path(
+        "api/redoc/",
+        SpectacularRedocView.as_view(url_name="schema"),
+        name="redoc",
+    ),
+
+    # Authentication
+    path("auth/", include("radio.urls.auth")),
+
+    # Main views
+    path("", views.home, name="home"),
+    path("talkgroups/", views.talkgroup_list, name="talkgroup_list"),
+    path("tg/<slug:slug>/", views.talkgroup_player, name="talkgroup_detail"),
+    path("tg/<slug:slug>/favorite/", views.toggle_favorite_talkgroup, name="toggle_favorite_talkgroup"),
+    path("scan/<slug:slug>/", views.scanlist_player, name="scanlist_detail"),
+    path("unit/<slug:slug>/", views.unit_player, name="unit_detail"),
+    path("inc/<slug:slug>/", views.incident_detail, name="incident_detail"),
+    path("audio/<slug:slug>/", views.transmission_detail, name="transmission_detail"),
+
+    # User pages
+    path("profile/", views.profile, name="profile"),
+    path("scanlists/", views.scanlist_list, name="scanlist_list"),
+    path("scanlists/create/", views.scanlist_create, name="scanlist_create"),
+    path("scanlists/<slug:slug>/edit/", views.scanlist_edit, name="scanlist_edit"),
+
+    # Incidents
+    path("incidents/", views.incident_list, name="incident_list"),
+
+    # Redirects for convenience
+    path("scan/", RedirectView.as_view(url="/scan/default/", permanent=False)),
+
+    # Django auth
+    path("", include("django.contrib.auth.urls")),
 ]
 
-if settings.OPEN_SITE:
-    urlpatterns += [url(r'^(tg|scan|unit)/(.*)/$',TemplateView.as_view(template_name='radio/player_main.html')),]
-else:
-    urlpatterns += [url(r'^(tg|scan|unit)/(.*)/$',login_required(TemplateView.as_view(template_name='radio/player_main.html'))),]
-
-urlpatterns += [
-    url(r'^inc/(.*)/$',views.incident, name='incident'),
-    url(r'^scan/$', RedirectView.as_view(url='/scan/default/', permanent=False)),
-]
-
-if settings.OPEN_SITE:
-    urlpatterns += [url(r'^userscan/$', TemplateView.as_view(template_name='radio/player_userscan.html')),]
-else:
-    urlpatterns += [url(r'^userscan/$', login_required(TemplateView.as_view(template_name='radio/player_userscan.html'))),]
-
-urlpatterns += [
-    url(r'^about/$', views.Generic, {'page_name': 'about'}, name='about'),
-    url(r'^page/(?P<page_name>.*)/$', views.Generic, name='pages'),
-    url(r'^talkgroups/$', views.TalkGroupList.as_view()),
-    url(r'^audio/(?P<slug>[-\w]+)/$',views.TransDetailView, name='trans'),
-    url(r'^audio_download/(?P<slug>[-\w]+)/$',views.transDownloadView, name='download'), 
-]
-
-if settings.OPEN_SITE:
-    urlpatterns += [url(r'^register/$', views.register, name='register'),]
-    urlpatterns += [url(r'^register/success/$', views.register_success),]
-else:
-    urlpatterns += [url(r'^register/$', views.Generic, {'page_name': 'index'}, name='register'),]
-
-urlpatterns += [
-    url(r'^unitupdate/(?P<pk>\d+)/$', views.UnitUpdateView.as_view(), name='unitupdate'),
-    url(r'^unitupdategood/$',  TemplateView.as_view(template_name='radio/unitupdategood.html')),
-]
-
-if settings.OPEN_SITE:
-    #urlpatterns += [url(r"^payments/", include("pinax.stripe.urls")),]
-    urlpatterns += [url(r'^upgrade/$', views.upgrade, name='upgrade'),]
-
-urlpatterns += [
-    url(r'^city/(?P<slug>[-\w]+)/$',views.cityDetailView, name='city_detail'),
-    url(r'^city/$',views.cityListView, name='city_list'),
-    url(r'^profile/$', views.userProfile, name='user_profile'),
-    url(r'^select2/', include('django_select2.urls')),
-    url(r'^userscanlist/$', views.userScanList, name='user_scanlist'),
-    url(r'^agency/$', views.agencyList, name='agency_list'),
-    url(r'^api_v2/import_transmission/$', views.import_transmission, name='import_transmission'),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
-if getattr(settings, 'SHOW_STRIPE_PLANS', False):
-    urlpatterns = urlpatterns + [ url(r'^plans/cancel/$', views.cancel_plan, name='cancel-plan') ]
-    urlpatterns = urlpatterns + [ url(r'^plans/$', views.plans, name='plans') ]
-else:
-    urlpatterns = urlpatterns + [ url(r'^plans/$', views.Generic, {'page_name': 'plans'}, name='plans') ]
-
+# Serve media files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
