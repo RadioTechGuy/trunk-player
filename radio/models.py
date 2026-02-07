@@ -38,6 +38,47 @@ class AudioFileType(models.TextChoices):
 
 
 # =============================================================================
+# DATABASE OPTIMIZATION UTILITIES
+# =============================================================================
+
+class TransmissionManager(models.Manager):
+    """
+    Custom manager for Transmission with optimized queries.
+    """
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("system", "talkgroup_info")
+
+    def recent(self, limit=50):
+        """Get recent transmissions efficiently."""
+        return self.get_queryset().order_by("-start_datetime")[:limit]
+
+    def for_talkgroup(self, talkgroup, limit=50):
+        """Get transmissions for a specific talkgroup."""
+        return (
+            self.get_queryset()
+            .filter(talkgroup_info=talkgroup)
+            .order_by("-start_datetime")[:limit]
+        )
+
+    def for_talkgroups(self, talkgroups, limit=50):
+        """Get transmissions for multiple talkgroups."""
+        return (
+            self.get_queryset()
+            .filter(talkgroup_info__in=talkgroups)
+            .order_by("-start_datetime")[:limit]
+        )
+
+    def in_date_range(self, start_date, end_date):
+        """Get transmissions within a date range (for partitioned queries)."""
+        return (
+            self.get_queryset()
+            .filter(start_datetime__gte=start_date, start_datetime__lt=end_date)
+            .order_by("-start_datetime")
+        )
+
+
+# =============================================================================
 # CORE RADIO MODELS
 # =============================================================================
 
@@ -228,43 +269,37 @@ class Unit(models.Model):
 class Transmission(models.Model):
     """
     A recorded radio transmission with audio file and metadata.
+
+    Optimized for millions of records with:
+    - Denormalized fields to reduce joins
+    - Efficient indexes for common query patterns
+    - JSON field for units to avoid M2M join overhead
+    - Date-based ordering for time-series queries
     """
+    # Use UUID for external references (URL-safe, no sequential info leak)
     slug = models.UUIDField(
-        db_index=True,
         default=uuid.uuid4,
-        editable=False
+        editable=False,
+        unique=True,
     )
 
-    # Timing
-    start_datetime = models.DateTimeField(db_index=True)
+    # Timing - primary ordering/partitioning field
+    start_datetime = models.DateTimeField()
     end_datetime = models.DateTimeField(null=True, blank=True)
-    play_length = models.FloatField(
+    play_length = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
         default=0,
         help_text="Audio duration in seconds"
     )
 
-    # Audio file
+    # Audio file - simplified
     audio_file = models.CharField(
         max_length=255,
-        help_text="Audio filename"
-    )
-    audio_file_url_path = models.CharField(
-        max_length=512,
-        blank=True,
-        default="/",
-        help_text="Full URL path if different from default"
-    )
-    audio_file_type = models.CharField(
-        max_length=10,
-        choices=AudioFileType.choices,
-        default=AudioFileType.MP3
-    )
-    has_audio = models.BooleanField(
-        default=True,
-        help_text="Whether audio file is available"
+        help_text="Audio filename or path"
     )
 
-    # Radio metadata
+    # Radio metadata - foreign keys for integrity
     system = models.ForeignKey(
         System,
         on_delete=models.CASCADE,
@@ -275,51 +310,83 @@ class Transmission(models.Model):
         on_delete=models.CASCADE,
         related_name="transmissions"
     )
-    talkgroup = models.IntegerField(
-        help_text="Talkgroup decimal ID (preserved even if TG deleted)"
+
+    # Denormalized fields for fast reads (avoid joins)
+    talkgroup_dec_id = models.IntegerField(
+        help_text="Talkgroup decimal ID (denormalized)"
     )
-    freq = models.BigIntegerField(
-        null=True,
+    talkgroup_name = models.CharField(
+        max_length=100,
         blank=True,
-        help_text="Transmission frequency in Hz"
+        help_text="Talkgroup display name (denormalized)"
+    )
+    system_name = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="System name (denormalized)"
     )
 
-    # Units involved in transmission
-    units = models.ManyToManyField(
-        Unit,
-        through="TransmissionUnit",
-        related_name="transmissions",
-        blank=True
+    # Units as JSON for read performance (avoids M2M join)
+    # Format: [{"id": 123, "name": "E-51"}, ...]
+    units_json = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Units involved in transmission (denormalized JSON)"
     )
 
-    # Flags
-    emergency = models.BooleanField(
-        default=False,
-        help_text="Emergency transmission flag"
-    )
-    from_default_source = models.BooleanField(
-        default=True,
-        help_text="From primary recording source"
-    )
+    # Frequency in Hz
+    freq = models.BigIntegerField(null=True, blank=True)
 
+    # Flags - use small int for efficiency
+    emergency = models.BooleanField(default=False)
+
+    # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Custom manager for optimized queries
+    objects = TransmissionManager()
+
     class Meta:
-        ordering = ["-pk"]
+        # Order by datetime DESC - matches typical query pattern
+        ordering = ["-start_datetime"]
         verbose_name = "Transmission"
         verbose_name_plural = "Transmissions"
         indexes = [
-            models.Index(fields=["-start_datetime"]),
-            models.Index(fields=["system", "-start_datetime"]),
-            models.Index(fields=["talkgroup_info", "-start_datetime"]),
-            models.Index(fields=["emergency", "-start_datetime"]),
+            # Primary query patterns
+            models.Index(
+                fields=["-start_datetime"],
+                name="trans_start_desc_idx"
+            ),
+            models.Index(
+                fields=["talkgroup_info", "-start_datetime"],
+                name="trans_tg_start_idx"
+            ),
+            models.Index(
+                fields=["system", "-start_datetime"],
+                name="trans_sys_start_idx"
+            ),
+            # UUID lookup
+            models.Index(
+                fields=["slug"],
+                name="trans_slug_idx"
+            ),
+            # Emergency transmissions (partial index would be better but Django doesn't support)
+            models.Index(
+                fields=["emergency", "-start_datetime"],
+                name="trans_emerg_start_idx"
+            ),
+            # Date-based partitioning helper (year-month)
+            models.Index(
+                fields=["start_datetime", "system"],
+                name="trans_date_sys_idx"
+            ),
         ]
         permissions = (
             ("download_audio", "Can download audio clips"),
         )
 
     def __str__(self):
-        return f"{self.talkgroup} {self.start_datetime}"
+        return f"{self.talkgroup_name or self.talkgroup_dec_id} {self.start_datetime}"
 
     def get_absolute_url(self):
         return reverse("transmission_detail", kwargs={"slug": self.slug})
@@ -328,7 +395,10 @@ class Transmission(models.Model):
     def audio_url(self):
         """Return full URL to audio file."""
         base_path = settings.AUDIO_URL_BASE
-        return urljoin(base_path, self.audio_file_url_path.lstrip("/"))
+        # Handle both full paths and filenames
+        if self.audio_file.startswith(("http://", "https://", "/")):
+            return self.audio_file
+        return urljoin(base_path, self.audio_file)
 
     @property
     def local_start_datetime(self):
@@ -349,30 +419,64 @@ class Transmission(models.Model):
         return f"{m:02d}:{s:02d}"
 
     def tg_name(self):
-        """Return talkgroup display name."""
-        if self.talkgroup_info.common_name:
-            return self.talkgroup_info.common_name
-        return self.talkgroup_info.alpha_tag
+        """Return talkgroup display name (uses denormalized field)."""
+        return self.talkgroup_name or f"TG {self.talkgroup_dec_id}"
+
+    def get_units(self):
+        """Return list of unit dicts from JSON field."""
+        return self.units_json or []
+
+    def set_units(self, units):
+        """
+        Set units from Unit queryset or list.
+        Denormalizes to JSON for fast reads.
+        """
+        if hasattr(units, '__iter__'):
+            self.units_json = [
+                {"id": u.dec_id, "name": u.display_name}
+                for u in units
+            ]
 
     def as_dict(self):
         """Return transmission data as dictionary for WebSocket."""
         return {
+            "slug": str(self.slug),
             "start_datetime": str(self.start_datetime),
             "talkgroup_slug": self.talkgroup_info.slug,
-            "talkgroup_dec_id": str(self.talkgroup_info.dec_id),
+            "talkgroup_dec_id": str(self.talkgroup_dec_id),
+            "talkgroup_name": self.talkgroup_name,
+            "system_name": self.system_name,
+            "emergency": self.emergency,
+            "play_length": float(self.play_length),
         }
 
     def save(self, *args, **kwargs):
+        # Denormalize fields on save
+        if self.talkgroup_info_id:
+            if not self.talkgroup_dec_id:
+                self.talkgroup_dec_id = self.talkgroup_info.dec_id
+            if not self.talkgroup_name:
+                self.talkgroup_name = self.talkgroup_info.display_name
+        if self.system_id and not self.system_name:
+            self.system_name = self.system.name
+
+        # Fix audio filename encoding
         if settings.FIX_AUDIO_NAME:
             file_name = str(self.audio_file)
             self.audio_file = file_name.replace("+", "%2B")
+
         super().save(*args, **kwargs)
 
 
 class TransmissionUnit(models.Model):
     """
     Junction table for units involved in a transmission.
-    Preserves order of unit appearances.
+
+    NOTE: For high-volume reads, use Transmission.units_json instead.
+    This table is maintained for:
+    - Backwards compatibility
+    - Complex unit-based queries
+    - Data integrity/normalization when needed
     """
     transmission = models.ForeignKey(
         Transmission,
@@ -384,12 +488,16 @@ class TransmissionUnit(models.Model):
         on_delete=models.CASCADE,
         related_name="unit_transmissions"
     )
-    order = models.PositiveIntegerField(default=0)
+    order = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         ordering = ["order"]
         verbose_name = "Transmission Unit"
         verbose_name_plural = "Transmission Units"
+        indexes = [
+            models.Index(fields=["transmission"]),
+            models.Index(fields=["unit"]),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=["transmission", "unit"],
@@ -399,6 +507,58 @@ class TransmissionUnit(models.Model):
 
     def __str__(self):
         return f"{self.unit} on {self.transmission}"
+
+
+# =============================================================================
+# TRANSMISSION ARCHIVE (for historical data)
+# =============================================================================
+
+class TransmissionArchive(models.Model):
+    """
+    Archived transmissions for long-term storage.
+
+    Move transmissions older than X months here to keep
+    the main Transmission table fast. Same structure as
+    Transmission but without foreign key constraints.
+    """
+    original_id = models.BigIntegerField(
+        help_text="Original transmission ID before archiving"
+    )
+    slug = models.UUIDField()
+
+    start_datetime = models.DateTimeField()
+    end_datetime = models.DateTimeField(null=True, blank=True)
+    play_length = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+
+    audio_file = models.CharField(max_length=255)
+
+    # Store IDs instead of FK for archived data
+    system_id = models.IntegerField()
+    system_name = models.CharField(max_length=100)
+    talkgroup_id = models.IntegerField()
+    talkgroup_dec_id = models.IntegerField()
+    talkgroup_name = models.CharField(max_length=100)
+
+    units_json = models.JSONField(default=list, blank=True)
+    freq = models.BigIntegerField(null=True, blank=True)
+    emergency = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField()
+    archived_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-start_datetime"]
+        verbose_name = "Archived Transmission"
+        verbose_name_plural = "Archived Transmissions"
+        indexes = [
+            models.Index(fields=["-start_datetime"]),
+            models.Index(fields=["talkgroup_id", "-start_datetime"]),
+            models.Index(fields=["system_id", "-start_datetime"]),
+            models.Index(fields=["slug"]),
+        ]
+
+    def __str__(self):
+        return f"[Archived] {self.talkgroup_name} {self.start_datetime}"
 
 
 class Transcription(models.Model):
@@ -418,7 +578,9 @@ class Transcription(models.Model):
         default=False,
         help_text="True if generated by speech-to-text"
     )
-    confidence = models.FloatField(
+    confidence = models.DecimalField(
+        max_digits=4,
+        decimal_places=3,
         null=True,
         blank=True,
         help_text="Confidence score for automated transcriptions (0-1)"
@@ -442,6 +604,9 @@ class Transcription(models.Model):
     class Meta:
         verbose_name = "Transcription"
         verbose_name_plural = "Transcriptions"
+        indexes = [
+            models.Index(fields=["transmission"]),
+        ]
 
     def __str__(self):
         return f"Transcription for {self.transmission}"
@@ -725,16 +890,17 @@ def add_talkgroup_to_default_groups(sender, instance, created, **kwargs):
 
 
 @receiver(post_save, sender=Transmission, dispatch_uid="send_mesg")
-def send_transmission_notification(sender, instance, **kwargs):
+def send_transmission_notification(sender, instance, created, **kwargs):
     """Send WebSocket notification when transmission is created."""
     import logging
 
     logger = logging.getLogger(__name__)
 
-    # Update talkgroup last_transmission
-    tg = instance.talkgroup_info
-    tg.last_transmission = timezone.now()
-    tg.save(update_fields=["last_transmission"])
+    # Update talkgroup last_transmission (only on create to reduce writes)
+    if created:
+        TalkGroup.objects.filter(pk=instance.talkgroup_info_id).update(
+            last_transmission=timezone.now()
+        )
 
     # Try to send WebSocket notification (may fail if Redis unavailable)
     try:
@@ -744,12 +910,14 @@ def send_transmission_notification(sender, instance, **kwargs):
         if channel_layer is None:
             return
 
-        # Get associated scan lists
-        groups = tg.scanlists.all()
+        # Get associated scan lists (use values_list to avoid loading full objects)
+        scan_slugs = list(
+            instance.talkgroup_info.scanlists.values_list("slug", flat=True)
+        )
 
         # Build payload
         payload = instance.as_dict()
-        payload["scan-groups"] = [g.slug for g in groups]
+        payload["scan-groups"] = scan_slugs
 
         # Send to default channel
         async_to_sync(channel_layer.group_send)(

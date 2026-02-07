@@ -4,25 +4,25 @@
 {% block page_title %}Transmission Detail{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto space-y-6">
+<div class="max-w-2xl mx-auto px-3 py-4 space-y-4">
     <!-- Audio Player -->
-    <div class="bg-slate-800 rounded-lg p-6" x-data="{ isPlaying: false }">
+    <div class="bg-white rounded border border-gray-200 p-4" x-data="{ isPlaying: false }">
         {% if can_play %}
         <div class="flex items-center space-x-4">
             <button
                 @click="$refs.audio.paused ? ($refs.audio.play(), isPlaying = true) : ($refs.audio.pause(), isPlaying = false)"
-                class="w-16 h-16 flex items-center justify-center rounded-full bg-primary-600 hover:bg-primary-700 text-white"
+                class="w-14 h-14 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-white"
             >
-                <svg x-show="!isPlaying" class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <svg x-show="!isPlaying" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M8 5v14l11-7z"/>
                 </svg>
-                <svg x-show="isPlaying" x-cloak class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <svg x-show="isPlaying" x-cloak class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
                 </svg>
             </button>
             <div class="flex-1">
-                <div class="font-semibold">{{ transmission.talkgroup_info.alpha_tag }}</div>
-                <div class="text-sm text-slate-400">{{ transmission.local_start_datetime }}</div>
+                <div class="font-semibold">{{ transmission.talkgroup_name }}</div>
+                <div class="text-sm text-gray-500">{{ transmission.local_start_datetime }}</div>
             </div>
         </div>
         <audio
@@ -34,46 +34,48 @@
         ></audio>
         {% else %}
         <div class="text-center py-4">
-            <p class="text-slate-400">This transmission is outside your history access window.</p>
+            <p class="text-gray-500">This transmission is outside your history access window.</p>
             {% if not user.is_authenticated %}
-            <a href="{% url 'login' %}" class="text-primary-400 hover:text-primary-300">Sign in</a> to access more history.
+            <a href="{% url 'login' %}" class="text-blue-600 hover:underline">Sign in</a> to access more history.
             {% endif %}
         </div>
         {% endif %}
     </div>
 
     <!-- Transmission Info -->
-    <div class="bg-slate-800 rounded-lg p-6">
+    <div class="bg-white rounded border border-gray-200 p-4">
         <h2 class="font-semibold mb-4">Transmission Details</h2>
-        <dl class="space-y-3">
+        <dl class="space-y-3 text-sm">
             <div class="flex justify-between">
-                <dt class="text-slate-400">Talkgroup</dt>
+                <dt class="text-gray-500">Talkgroup</dt>
                 <dd>
-                    <a href="{% url 'talkgroup_detail' slug=transmission.talkgroup_info.slug %}" class="text-primary-400 hover:text-primary-300">
-                        {{ transmission.talkgroup_info.alpha_tag }}
+                    <a href="{% url 'talkgroup_detail' slug=transmission.talkgroup_info.slug %}" class="text-blue-600 hover:underline">
+                        {{ transmission.talkgroup_name }}
                     </a>
                 </dd>
             </div>
             <div class="flex justify-between">
-                <dt class="text-slate-400">System</dt>
-                <dd>{{ transmission.system.name }}</dd>
+                <dt class="text-gray-500">System</dt>
+                <dd>{{ transmission.system_name }}</dd>
             </div>
             <div class="flex justify-between">
-                <dt class="text-slate-400">Start Time</dt>
+                <dt class="text-gray-500">Start Time</dt>
                 <dd>{{ transmission.local_start_datetime }}</dd>
             </div>
             <div class="flex justify-between">
-                <dt class="text-slate-400">Duration</dt>
+                <dt class="text-gray-500">Duration</dt>
                 <dd>{{ transmission.print_play_length }}</dd>
             </div>
+            {% if transmission.freq %}
             <div class="flex justify-between">
-                <dt class="text-slate-400">Frequency</dt>
+                <dt class="text-gray-500">Frequency</dt>
                 <dd>{{ transmission.freq_mhz }} MHz</dd>
             </div>
+            {% endif %}
             {% if transmission.emergency %}
             <div class="flex justify-between">
-                <dt class="text-slate-400">Status</dt>
-                <dd class="text-red-400 font-medium">Emergency</dd>
+                <dt class="text-gray-500">Status</dt>
+                <dd class="text-red-600 font-medium">Emergency</dd>
             </div>
             {% endif %}
         </dl>
@@ -81,14 +83,14 @@
 
     <!-- Units -->
     {% if units %}
-    <div class="bg-slate-800 rounded-lg p-6">
+    <div class="bg-white rounded border border-gray-200 p-4">
         <h2 class="font-semibold mb-4">Units</h2>
         <div class="space-y-2">
             {% for unit in units %}
-            <a href="{% url 'unit_detail' slug=unit.slug %}" class="block px-3 py-2 bg-slate-700/50 rounded-lg hover:bg-slate-700 transition-colors">
-                <span class="font-medium">{{ unit.display_name }}</span>
-                <span class="text-sm text-slate-400 ml-2">ID: {{ unit.dec_id }}</span>
-            </a>
+            <div class="block px-3 py-2 bg-gray-50 rounded hover:bg-gray-100">
+                <span class="font-medium">{{ unit.name }}</span>
+                <span class="text-sm text-gray-400 ml-2">ID: {{ unit.id }}</span>
+            </div>
             {% endfor %}
         </div>
     </div>
@@ -96,11 +98,11 @@
 
     <!-- Transcription -->
     {% if transmission.transcription %}
-    <div class="bg-slate-800 rounded-lg p-6">
+    <div class="bg-white rounded border border-gray-200 p-4">
         <h2 class="font-semibold mb-4">Transcription</h2>
-        <p class="text-slate-300">{{ transmission.transcription.text }}</p>
+        <p class="text-gray-700">{{ transmission.transcription.text }}</p>
         {% if transmission.transcription.is_automated %}
-        <p class="text-sm text-slate-500 mt-2">
+        <p class="text-sm text-gray-400 mt-2">
             Auto-generated (confidence: {{ transmission.transcription.confidence|floatformat:0 }}%)
         </p>
         {% endif %}

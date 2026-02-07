@@ -62,10 +62,8 @@ def home(request):
 
     accessible_tgs = get_user_accessible_talkgroups(request.user)
 
-    transmissions = Transmission.objects.filter(
-        talkgroup_info__in=accessible_tgs
-    ).select_related("system", "talkgroup_info")[:20]
-
+    # Use manager's optimized query (already has select_related)
+    transmissions = Transmission.objects.for_talkgroups(accessible_tgs, limit=20)
     transmissions = get_history_filtered_transmissions(request.user, transmissions)
 
     context = {
@@ -129,10 +127,8 @@ def talkgroup_player(request, slug):
     if settings.ACCESS_TG_RESTRICT and talkgroup not in accessible_tgs:
         raise Http404("Talkgroup not found")
 
-    transmissions = Transmission.objects.filter(
-        talkgroup_info=talkgroup
-    ).select_related("system", "talkgroup_info").prefetch_related("units")[:50]
-
+    # Use optimized manager query
+    transmissions = Transmission.objects.for_talkgroup(talkgroup, limit=50)
     transmissions = get_history_filtered_transmissions(request.user, transmissions)
 
     context = {
@@ -163,10 +159,8 @@ def scanlist_player(request, slug):
     if settings.ACCESS_TG_RESTRICT:
         talkgroups = talkgroups.filter(pk__in=accessible_tgs)
 
-    transmissions = Transmission.objects.filter(
-        talkgroup_info__in=talkgroups
-    ).select_related("system", "talkgroup_info").prefetch_related("units")[:50]
-
+    # Use optimized manager query
+    transmissions = Transmission.objects.for_talkgroups(talkgroups, limit=50)
     transmissions = get_history_filtered_transmissions(request.user, transmissions)
 
     context = {
@@ -184,9 +178,14 @@ def unit_player(request, slug):
     """Player view for a specific unit."""
     unit = get_object_or_404(Unit, slug=slug)
 
-    transmissions = Transmission.objects.filter(
-        units=unit
-    ).select_related("system", "talkgroup_info").prefetch_related("units")[:50]
+    # Unit queries use the M2M relationship (TransmissionUnit table)
+    # This is kept for efficient unit-based lookups
+    transmissions = (
+        Transmission.objects
+        .filter(transmission_units__unit=unit)
+        .select_related("system", "talkgroup_info")
+        .order_by("-start_datetime")[:50]
+    )
 
     # Filter by accessible talkgroups
     accessible_tgs = get_user_accessible_talkgroups(request.user)
@@ -235,6 +234,6 @@ def transmission_detail(request, slug):
     context = {
         "transmission": transmission,
         "can_play": can_play,
-        "units": transmission.units.all(),
+        "units": transmission.get_units(),  # Uses denormalized JSON
     }
     return render(request, "radio/transmission_detail.html", context)
