@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Signed Out - {{ SITE_TITLE }}{% endblock %}
+
+{% block content %}
+<div class="max-w-sm mx-auto px-3 py-8 text-center">
+    <h1 class="text-lg font-semibold mb-4">Signed Out</h1>
+
+    <div class="bg-white rounded border border-gray-200 p-4">
+        <p class="text-gray-600 mb-4">You have been signed out successfully.</p>
+        <a href="{% url 'login' %}" class="inline-block px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded text-white font-medium">
+            Sign In Again
+        </a>
+    </div>
+</div>
+{% endblock %}
