@@ -28,10 +28,12 @@ def user_favorites(request):
     """
     favorite_talkgroups = []
     user_scanlists = []
+    show_unit_ids = True  # Default to showing units
     if request.user.is_authenticated:
         try:
             profile = request.user.profile
             favorite_talkgroups = profile.favorite_talkgroups.select_related('system').all()[:10]
+            show_unit_ids = profile.show_unit_ids
         except Exception:
             pass
         # Get user's own scanlists
@@ -42,4 +44,5 @@ def user_favorites(request):
     return {
         "favorite_talkgroups": favorite_talkgroups,
         "user_scanlists": user_scanlists,
+        "show_unit_ids": show_unit_ids,
     }
