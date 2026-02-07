@@ -1,8 +1,13 @@
 version: '3.7'
 
+volumes:
+  postgres_data:
+
 services:
   db:
     image: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     environment:
       - POSTGRES_PASSWORD=password1234
 
@@ -10,7 +15,7 @@ services:
     build:
       context: .
     ports:
-      - "8008:80"
+      - "8001:8000"
     volumes:
       - .:/app/trunkplayer
     # command: 
