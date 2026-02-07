@@ -37,9 +37,18 @@
 </head>
 <body class="bg-gray-100 text-gray-900 text-sm">
     <!-- Navbar -->
+    <div x-data="{ mobileOpen: false }">
     <nav class="bg-gray-800 text-white fixed top-0 left-0 right-0 z-50 h-12">
         <div class="max-w-7xl mx-auto px-3 h-full flex items-center justify-between">
-            <div class="flex items-center space-x-6">
+            <div class="flex items-center space-x-4">
+                <!-- Mobile menu button -->
+                <button @click="mobileOpen = !mobileOpen" class="md:hidden p-1 hover:bg-gray-700 rounded">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path x-show="!mobileOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        <path x-show="mobileOpen" x-cloak stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+
                 <a href="{% url 'home' %}" class="font-semibold text-base">{{ SITE_TITLE }}</a>
 
                 <div class="hidden md:flex items-center space-x-4 text-sm">
@@ -104,6 +113,61 @@
             </div>
         </div>
     </nav>
+
+    <!-- Mobile menu dropdown -->
+    <div x-show="mobileOpen" x-cloak @click.away="mobileOpen = false"
+         class="md:hidden fixed top-12 left-0 right-0 bg-gray-800 text-white z-40 border-t border-gray-700"
+         x-data="{ scanOpen: false, tgOpen: false }">
+        <div class="max-w-7xl mx-auto px-3 py-2">
+            <!-- Scan Lists -->
+            <div class="border-b border-gray-700 pb-2 mb-2">
+                <button @click="scanOpen = !scanOpen" class="w-full flex items-center justify-between py-2 text-sm">
+                    Scan Lists
+                    <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': scanOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div x-show="scanOpen" x-cloak class="pl-4 space-y-1">
+                    {% for sl in user_scanlists %}
+                    <a href="{% url 'scanlist_detail' slug=sl.slug %}" class="block py-1 text-sm text-gray-300 hover:text-white truncate">
+                        {{ sl.name }}
+                    </a>
+                    {% endfor %}
+                    {% if user_scanlists %}
+                    <div class="border-t border-gray-600 my-1"></div>
+                    {% endif %}
+                    <a href="{% url 'scanlist_list' %}" class="block py-1 text-sm text-gray-300 hover:text-white">All Scan Lists</a>
+                    <a href="{% url 'scanlist_create' %}" class="block py-1 text-sm text-gray-300 hover:text-white">Create Scan List</a>
+                </div>
+            </div>
+
+            <!-- Talk Groups -->
+            <div class="border-b border-gray-700 pb-2 mb-2">
+                <button @click="tgOpen = !tgOpen" class="w-full flex items-center justify-between py-2 text-sm">
+                    Talk Groups
+                    <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': tgOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div x-show="tgOpen" x-cloak class="pl-4 space-y-1">
+                    {% for tg in favorite_talkgroups %}
+                    <a href="{% url 'talkgroup_detail' slug=tg.slug %}" class="block py-1 text-sm text-gray-300 hover:text-white truncate">
+                        {{ tg.alpha_tag }}
+                        <span class="text-gray-500 text-xs ml-1">{{ tg.system.name }}</span>
+                    </a>
+                    {% endfor %}
+                    {% if favorite_talkgroups %}
+                    <div class="border-t border-gray-600 my-1"></div>
+                    {% endif %}
+                    <a href="{% url 'talkgroup_list' %}" class="block py-1 text-sm text-gray-300 hover:text-white">All Talkgroups</a>
+                </div>
+            </div>
+
+            <!-- Incidents -->
+            <a href="{% url 'incident_list' %}" class="block py-2 text-sm hover:text-gray-300">Incidents</a>
+        </div>
+    </div>
+    </div>
 
     <!-- Main content -->
     <main class="pt-12">
