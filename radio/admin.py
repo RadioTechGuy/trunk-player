@@ -89,8 +89,8 @@ class TransmissionAdmin(admin.ModelAdmin):
         "emergency",
         "system",
     )
-    list_filter = ("system", "emergency", "has_audio")
-    search_fields = ("talkgroup_info__alpha_tag", "talkgroup")
+    list_filter = ("system", "emergency")
+    search_fields = ("talkgroup_info__alpha_tag", "talkgroup_dec_id", "talkgroup_name")
     list_select_related = ("system", "talkgroup_info")
     raw_id_fields = ("talkgroup_info", "system")
     inlines = (TransmissionUnitInline, TranscriptionInline)
