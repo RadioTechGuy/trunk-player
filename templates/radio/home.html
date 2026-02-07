@@ -55,17 +55,13 @@
                         <span class="flex-shrink-0 px-1 py-0.5 text-xs font-medium bg-red-600 text-white rounded">E</span>
                         {% endif %}
                         <span class="font-medium">{{ trans.talkgroup_info.alpha_tag }}</span>
-                        <span class="text-gray-400 hidden sm:inline">{{ trans.talkgroup_info.common_name }}</span>
                         <span class="text-gray-400 text-xs">{{ trans.print_play_length }}</span>
                     </div>
-                    <div class="flex items-center space-x-3 text-xs text-gray-500">
-                        <span class="hidden sm:inline">{{ trans.freq_mhz }} MHz</span>
-                        <span>{{ trans.local_start_datetime }}</span>
-                    </div>
+                    <span class="text-xs text-gray-500">{{ trans.local_start_datetime }}</span>
                 </div>
-                {% if trans.units.exists %}
+                {% if show_unit_ids and trans.units_json %}
                 <div class="mt-1 text-xs text-gray-500 pl-8">
-                    {% for unit in trans.units.all %}{{ unit.description|default:unit.dec_id }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                    {% for unit in trans.units_json %}{{ unit.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
                 </div>
                 {% endif %}
             </div>
