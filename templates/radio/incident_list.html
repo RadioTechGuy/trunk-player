@@ -3,26 +3,29 @@
 {% block title %}Incidents - {{ SITE_TITLE }}{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto px-3 py-4">
-    <h1 class="text-lg font-semibold mb-3">Incidents</h1>
+<div class="container" style="max-width:960px;">
+    <h2 style="margin-top:var(--space-4);">Incidents</h2>
 
-    <div class="bg-white rounded border border-gray-200">
+    <div class="card" style="padding:0;">
         {% for incident in incidents %}
-        <a href="{% url 'incident_detail' slug=incident.slug %}" class="block px-3 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
+        <a href="{% url 'incident_detail' slug=incident.slug %}"
+           class="d-block"
+           style="padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--border-color);transition:background var(--transition-fast);"
+           onmouseover="this.style.background='var(--bg-surface-hover)'" onmouseout="this.style.background=''">
             <div class="flex items-center justify-between">
                 <div>
-                    <span class="font-medium">{{ incident.name }}</span>
-                    <span class="text-sm text-gray-400 ml-2">{{ incident.transmissions.count }} transmissions</span>
+                    <span class="text-sm text-semibold text-primary">{{ incident.name }}</span>
+                    <span class="text-xs text-muted" style="margin-left:var(--space-3);">{{ incident.transmissions.count }} transmissions</span>
                 </div>
-                <span class="text-xs text-gray-500">{{ incident.created_at|date:"M d, Y" }}</span>
+                <span class="text-xs text-muted">{{ incident.created_at|date:"M d, Y" }}</span>
             </div>
             {% if incident.description %}
-            <p class="text-sm text-gray-500 mt-1">{{ incident.description|truncatewords:30 }}</p>
+            <p class="text-xs text-muted mb-0" style="margin-top:var(--space-1);">{{ incident.description|truncatewords:30 }}</p>
             {% endif %}
         </a>
         {% empty %}
-        <div class="px-3 py-8 text-center text-gray-500">
-            No incidents available.
+        <div class="empty-state">
+            <div class="empty-state-title">No incidents available.</div>
         </div>
         {% endfor %}
     </div>

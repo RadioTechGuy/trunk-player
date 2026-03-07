@@ -3,58 +3,48 @@
 {% block title %}Profile - {{ SITE_TITLE }}{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-3 py-4">
+<div class="container" style="max-width:720px;">
     <!-- User info -->
-    <div class="bg-white rounded border border-gray-200 p-4 mb-4">
-        <h2 class="text-lg font-semibold mb-3">Account Information</h2>
-        <table class="text-sm">
-            <tr>
-                <td class="text-gray-500 pr-6 py-1">Username</td>
-                <td class="font-medium py-1">{{ user.username }}</td>
-            </tr>
-            <tr>
-                <td class="text-gray-500 pr-6 py-1">Email</td>
-                <td class="font-medium py-1">{{ user.email }}</td>
-            </tr>
-            <tr>
-                <td class="text-gray-500 pr-6 py-1">Plan</td>
-                <td class="font-medium py-1">{{ profile.plan.name|default:"Free" }}</td>
-            </tr>
-            <tr>
-                <td class="text-gray-500 pr-6 py-1">History Access</td>
-                <td class="font-medium py-1">
-                    {% if profile.plan.history == 0 %}Unlimited{% else %}{{ profile.plan.history }} minutes{% endif %}
-                </td>
-            </tr>
-        </table>
+    <div class="card section" style="margin-top:var(--space-4);">
+        <h3>Account Information</h3>
+        <dl class="dl">
+            <dt>Username</dt>
+            <dd>{{ user.username }}</dd>
+            <dt>Email</dt>
+            <dd>{{ user.email }}</dd>
+            <dt>Plan</dt>
+            <dd>{{ profile.plan.name|default:"Free" }}</dd>
+            <dt>History Access</dt>
+            <dd>{% if profile.plan.history == 0 %}Unlimited{% else %}{{ profile.plan.history }} minutes{% endif %}</dd>
+        </dl>
     </div>
 
     <!-- My Scanlists -->
-    <div class="bg-white rounded border border-gray-200">
-        <div class="px-3 py-2 border-b border-gray-200 flex items-center justify-between">
-            <h2 class="font-semibold">My Scan Lists</h2>
-            <a href="{% url 'scanlist_create' %}" class="text-blue-600 hover:underline text-sm">Create New</a>
+    <div class="card" style="padding:0;">
+        <div class="card-header" style="padding:var(--space-3) var(--space-4);margin-bottom:0;">
+            <span class="card-title">My Scan Lists</span>
+            <a href="{% url 'scanlist_create' %}" class="btn btn-sm btn-outline">Create New</a>
         </div>
 
         {% for scanlist in scanlists %}
-        <div class="px-3 py-2 border-b border-gray-100 last:border-b-0 flex items-center justify-between">
+        <div style="padding:var(--space-3) var(--space-4);border-top:1px solid var(--border-color);" class="flex items-center justify-between">
             <div>
-                <a href="{% url 'scanlist_detail' slug=scanlist.slug %}" class="font-medium text-blue-600 hover:underline">
+                <a href="{% url 'scanlist_detail' slug=scanlist.slug %}" class="text-sm text-semibold">
                     {{ scanlist.name }}
                 </a>
-                <span class="text-sm text-gray-400 ml-2">{{ scanlist.talkgroups.count }} talkgroups</span>
+                <span class="text-xs text-muted" style="margin-left:var(--space-3);">{{ scanlist.talkgroups.count }} talkgroups</span>
             </div>
-            <div class="flex items-center space-x-2">
+            <div class="flex items-center gap-3">
                 {% if scanlist.public %}
-                <span class="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">Public</span>
+                <span class="badge badge-success">Public</span>
                 {% endif %}
-                <a href="{% url 'scanlist_edit' slug=scanlist.slug %}" class="text-xs text-gray-500 hover:text-gray-700">Edit</a>
+                <a href="{% url 'scanlist_edit' slug=scanlist.slug %}" class="btn btn-sm btn-ghost">Edit</a>
             </div>
         </div>
         {% empty %}
-        <div class="px-3 py-6 text-center text-gray-500">
-            <p>You haven't created any scan lists yet.</p>
-            <a href="{% url 'scanlist_create' %}" class="text-blue-600 hover:underline">Create your first scan list</a>
+        <div class="empty-state" style="border-top:1px solid var(--border-color);">
+            <div class="empty-state-title">You haven't created any scan lists yet.</div>
+            <a href="{% url 'scanlist_create' %}" class="btn btn-sm btn-primary" style="margin-top:var(--space-3);">Create your first scan list</a>
         </div>
         {% endfor %}
     </div>

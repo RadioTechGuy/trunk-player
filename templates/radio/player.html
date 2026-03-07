@@ -2,81 +2,160 @@
 
 {% block title %}{{ page_title }} - {{ SITE_TITLE }}{% endblock %}
 
-{% block content %}
-<div x-data="radioPlayer()" x-init="init()" class="max-w-5xl mx-auto">
-    <!-- Compact player bar -->
-    <div class="bg-white border-b border-gray-200 px-3 py-2 sticky top-12 z-40 flex items-center justify-between">
-        <div class="flex items-center space-x-3">
-            <button @click="togglePlayback()"
-                    class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-white">
-                <svg x-show="!isPlaying" class="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z"/>
-                </svg>
-                <svg x-show="isPlaying" x-cloak class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
-                </svg>
-            </button>
-            <div class="min-w-0">
-                <div class="font-medium truncate" x-text="currentTransmission?.talkgroup_info?.alpha_tag || '{{ page_title }}'"></div>
-                <div class="text-xs text-gray-500" x-text="currentTransmission?.local_start_datetime || ''"></div>
-            </div>
-        </div>
-        <div class="flex items-center space-x-3">
-            <span class="text-xs text-gray-500" x-text="formatTime(currentTime) + ' / ' + formatTime(duration)"></span>
-            <button @click="scannerMode = !scannerMode"
-                    :class="scannerMode ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700'"
-                    class="px-2 py-1 rounded text-xs font-medium">
-                Scanner
-            </button>
-        </div>
-    </div>
+{% block extra_head %}
+<style>
+    .player-wrapper {
+        position: sticky;
+        top: var(--nav-height);
+        z-index: 30;
+        background: var(--bg-page);
+        padding: var(--space-4) 0 var(--space-4) 0;
+    }
+    .player-bar {
+        background: var(--bg-surface-raised);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: var(--space-3) var(--space-4);
+    }
+    .play-btn {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-full);
+        background: var(--bg-primary);
+        color: var(--text-on-primary);
+        border: none;
+        cursor: pointer;
+        transition: background var(--transition-fast);
+        flex-shrink: 0;
+    }
+    .play-btn:hover { background: var(--bg-primary-hover); }
+    .play-btn-sm {
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-muted);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+    .play-btn-sm:hover { color: var(--text-primary); }
+    .trans-row {
+        display: block;
+        padding: var(--space-3) var(--space-4);
+        border-bottom: 1px solid var(--border-color);
+        cursor: pointer;
+        transition: background var(--transition-fast);
+    }
+    .trans-row:hover { background: var(--bg-surface-hover); }
+    .scanner-btn {
+        padding: var(--space-1) var(--space-3);
+        border-radius: var(--radius-md);
+        font-size: var(--text-xs);
+        font-weight: var(--font-weight-medium);
+        background: var(--bg-surface);
+        color: var(--text-secondary);
+        border: 1px solid var(--border-color);
+        cursor: pointer;
+        transition: background var(--transition-fast), color var(--transition-fast);
+    }
+    .emergency-tag {
+        display: inline-flex;
+        align-items: center;
+        padding: var(--space-1) var(--space-2);
+        font-size: var(--text-xs);
+        font-weight: var(--font-weight-semibold);
+        background: var(--color-danger);
+        color: #fff;
+        border-radius: var(--radius-sm);
+        flex-shrink: 0;
+    }
+</style>
+{% endblock %}
 
-    <!-- Transmission list -->
-    <div class="bg-white">
-        {% for trans in transmissions %}
-        <div id="row-{{ trans.id }}"
-             class="border-t border-gray-200 hover:bg-gray-50 cursor-pointer {% if trans.emergency %}row-emergency{% endif %}"
-             :class="{ 'playing': currentTransmission?.id === {{ trans.id }} }"
-             @click="playTransmission({{ trans.id }}, '{{ trans.audio_url }}', {
-                 id: {{ trans.id }},
-                 talkgroup_info: { alpha_tag: '{{ trans.talkgroup_info.alpha_tag }}', slug: '{{ trans.talkgroup_info.slug }}' },
-                 local_start_datetime: '{{ trans.local_start_datetime }}',
-                 emergency: {{ trans.emergency|yesno:'true,false' }}
-             })">
-            <div class="px-3 py-2">
+{% block content %}
+<div x-data="radioPlayer()" x-init="init()">
+    <div class="container" style="max-width:960px;">
+        <!-- Player bar -->
+        <div class="player-wrapper">
+            <div class="player-bar">
                 <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-2 min-w-0">
-                        <button class="flex-shrink-0 w-6 h-6 flex items-center justify-center text-gray-600 hover:text-gray-900">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <div class="flex items-center gap-3" style="min-width:0;">
+                        <button @click="togglePlayback()" class="play-btn">
+                            <svg x-show="!isPlaying" width="14" height="14" fill="currentColor" viewBox="0 0 24 24" style="margin-left:2px;">
                                 <path d="M8 5v14l11-7z"/>
                             </svg>
+                            <svg x-show="isPlaying" x-cloak width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                            </svg>
                         </button>
-                        {% if trans.emergency %}
-                        <span class="flex-shrink-0 px-1 py-0.5 text-xs font-medium bg-red-600 text-white rounded">E</span>
-                        {% endif %}
-                        <span class="font-medium">{{ trans.talkgroup_info.alpha_tag }}</span>
-                        <span class="text-gray-400 text-xs">{{ trans.print_play_length }}</span>
+                        <div style="min-width:0;">
+                            <div class="text-sm text-semibold text-truncate" x-text="currentTransmission?.talkgroup_info?.alpha_tag || '{{ page_title }}'"></div>
+                            <div class="text-xs text-muted" x-text="currentTransmission?.local_start_datetime || ''"></div>
+                        </div>
                     </div>
-                    <span class="text-xs text-gray-500">{{ trans.local_start_datetime }}</span>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs text-muted" x-text="formatTime(currentTime) + ' / ' + formatTime(duration)"></span>
+                        <button @click="scannerMode = !scannerMode"
+                                :style="scannerMode ? 'background:var(--color-success);color:#fff;border-color:var(--color-success);' : ''"
+                                class="scanner-btn">
+                            Scanner
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transmission list -->
+        <div class="card" style="border-radius:var(--radius-lg);padding:0;">
+            {% for trans in transmissions %}
+            <div id="row-{{ trans.id }}"
+                 class="trans-row {% if trans.emergency %}row-emergency{% endif %}"
+                 :class="{ 'playing': currentTransmission?.id === {{ trans.id }} }"
+                 @click="playTransmission({{ trans.id }}, '{{ trans.audio_url }}', {
+                     id: {{ trans.id }},
+                     talkgroup_info: { alpha_tag: '{{ trans.talkgroup_info.alpha_tag }}', slug: '{{ trans.talkgroup_info.slug }}' },
+                     local_start_datetime: '{{ trans.local_start_datetime }}',
+                     emergency: {{ trans.emergency|yesno:'true,false' }}
+                 })">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2" style="min-width:0;">
+                        <span class="play-btn-sm">
+                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        </span>
+                        {% if trans.emergency %}
+                        <span class="emergency-tag">E</span>
+                        {% endif %}
+                        <span class="text-sm text-semibold text-primary">{{ trans.talkgroup_info.alpha_tag }}</span>
+                        <span class="text-xs text-muted">{{ trans.print_play_length }}</span>
+                    </div>
+                    <span class="text-xs text-muted text-nowrap">{{ trans.local_start_datetime }}</span>
                 </div>
                 {% if show_unit_ids and trans.units_json %}
-                <div class="mt-1 text-xs text-gray-500 pl-8">
+                <div class="text-xs text-muted" style="padding-left:32px;margin-top:var(--space-1);">
                     {% for unit in trans.units_json %}{{ unit.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
                 </div>
                 {% endif %}
             </div>
+            {% empty %}
+            <div class="empty-state">
+                <div class="empty-state-title">No transmissions available</div>
+            </div>
+            {% endfor %}
         </div>
-        {% empty %}
-        <div class="px-3 py-8 text-center text-gray-500">
-            No transmissions available
-        </div>
-        {% endfor %}
-    </div>
 
-    <audio x-ref="audio"
-           @timeupdate="updateProgress()"
-           @ended="onEnded()"
-           @loadedmetadata="duration = $refs.audio.duration"></audio>
+        <audio x-ref="audio"
+               @timeupdate="updateProgress()"
+               @ended="onEnded()"
+               @loadedmetadata="duration = $refs.audio.duration"></audio>
+    </div>
 </div>
 {% endblock %}
 

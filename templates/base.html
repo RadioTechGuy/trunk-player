@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,176 +6,246 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ SITE_TITLE }}{% endblock %}</title>
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'system-ui', 'sans-serif'],
-                    }
-                }
-            }
-        }
-    </script>
+    <!-- Gasda Design System -->
+    <link rel="stylesheet" href="{% static 'css/reset.css' %}">
+    <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/layout.css' %}">
+    <link rel="stylesheet" href="{% static 'css/components.css' %}">
+    <link rel="stylesheet" href="{% static 'css/utilities.css' %}">
 
     <!-- Alpine.js -->
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
-    <!-- Inter font -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-
     <style>
         [x-cloak] { display: none !important; }
-        .row-highlight { background-color: #fef3c7; }
-        .row-emergency { background-color: #fee2e2; border-left: 3px solid #ef4444; }
-        .playing { background-color: #dcfce7; }
+        /* Lock nav to top */
+        .nav.page-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+        }
+        .page-body {
+            padding-top: var(--nav-height);
+        }
+        .row-emergency { background-color: var(--color-danger-light); border-left: 3px solid var(--color-danger); }
+        .playing { background-color: var(--color-success-light); }
+        .dropdown-menu {
+            position: absolute;
+            left: 0;
+            top: 100%;
+            margin-top: var(--space-2);
+            min-width: 220px;
+            background: var(--bg-surface-raised);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            z-index: 60;
+            padding: var(--space-2) 0;
+        }
+        .dropdown-item {
+            display: block;
+            padding: var(--space-2) var(--space-4);
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+            transition: background var(--transition-fast), color var(--transition-fast);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .dropdown-item:hover {
+            background: var(--bg-surface-hover);
+            color: var(--text-primary);
+        }
+        /* Ensure nav buttons (dropdowns) have no browser-default background */
+        button.nav-link {
+            background: transparent;
+            border: none;
+        }
+        .dropdown-divider {
+            border-top: 1px solid var(--border-color);
+            margin: var(--space-2) 0;
+        }
+        .mobile-menu {
+            position: fixed;
+            top: var(--nav-height);
+            left: 0;
+            right: 0;
+            background: var(--bg-surface-raised);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: var(--shadow-lg);
+            z-index: 40;
+            padding: var(--space-4) var(--space-8);
+        }
+        .mobile-section {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: var(--space-3);
+            margin-bottom: var(--space-3);
+        }
+        .mobile-toggle {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-2) 0;
+            font-size: var(--text-sm);
+            color: var(--text-primary);
+            background: transparent;
+            border: none;
+        }
+        .mobile-submenu {
+            padding-left: var(--space-8);
+        }
+        .mobile-submenu a {
+            display: block;
+            padding: var(--space-2) 0;
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+        }
+        .mobile-submenu a:hover {
+            color: var(--text-primary);
+        }
+        .chevron-icon {
+            width: 16px;
+            height: 16px;
+            transition: transform var(--transition-fast);
+        }
     </style>
 
     {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-gray-100 text-gray-900 text-sm">
+<body>
+    <div class="page">
     <!-- Navbar -->
     <div x-data="{ mobileOpen: false }">
-    <nav class="bg-gray-800 text-white fixed top-0 left-0 right-0 z-50 h-12">
-        <div class="max-w-7xl mx-auto px-3 h-full flex items-center justify-between">
-            <div class="flex items-center space-x-4">
-                <!-- Mobile menu button -->
-                <button @click="mobileOpen = !mobileOpen" class="md:hidden p-1 hover:bg-gray-700 rounded">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path x-show="!mobileOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-                        <path x-show="mobileOpen" x-cloak stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
+    <nav class="nav page-header">
+        <div class="flex items-center gap-4 flex-1">
+            <!-- Mobile menu button -->
+            <button @click="mobileOpen = !mobileOpen" class="btn btn-ghost btn-icon d-none" style="display:none;" id="mobile-menu-btn" aria-label="Menu">
+                <svg x-show="!mobileOpen" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+                <svg x-show="mobileOpen" x-cloak width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
 
-                <a href="{% url 'home' %}" class="font-semibold text-base">{{ SITE_TITLE }}</a>
+            <a href="{% url 'home' %}" class="nav-brand">{{ SITE_TITLE }}</a>
 
-                <div class="hidden md:flex items-center space-x-4 text-sm">
-                    <div x-data="{ open: false }" class="relative">
-                        <button @click="open = !open" class="flex items-center hover:text-gray-300">
-                            Scan Lists
-                            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                            </svg>
-                        </button>
-                        <div x-show="open" @click.away="open = false" x-cloak
-                             class="absolute left-0 mt-2 w-56 bg-white text-gray-800 rounded shadow-lg py-1 z-50">
-                            {% for sl in user_scanlists %}
-                            <a href="{% url 'scanlist_detail' slug=sl.slug %}" class="block px-4 py-2 hover:bg-gray-100 truncate">
-                                {{ sl.name }}
-                            </a>
-                            {% endfor %}
-                            {% if user_scanlists %}
-                            <div class="border-t border-gray-200 mt-1 pt-1"></div>
-                            {% endif %}
-                            <a href="{% url 'scanlist_list' %}" class="block px-4 py-2 hover:bg-gray-100">All Scan Lists</a>
-                            <a href="{% url 'scanlist_create' %}" class="block px-4 py-2 hover:bg-gray-100">Create Scan List</a>
-                        </div>
+            <div class="nav-links" id="desktop-nav">
+                <div x-data="{ open: false }" class="relative" style="position:relative;">
+                    <button @click="open = !open" class="nav-link flex items-center gap-1">
+                        Scan Lists
+                        <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div x-show="open" @click.away="open = false" x-cloak class="dropdown-menu">
+                        {% for sl in user_scanlists %}
+                        <a href="{% url 'scanlist_detail' slug=sl.slug %}" class="dropdown-item">{{ sl.name }}</a>
+                        {% endfor %}
+                        {% if user_scanlists %}
+                        <div class="dropdown-divider"></div>
+                        {% endif %}
+                        <a href="{% url 'scanlist_list' %}" class="dropdown-item">All Scan Lists</a>
+                        <a href="{% url 'scanlist_create' %}" class="dropdown-item">Create Scan List</a>
                     </div>
-
-                    <div x-data="{ open: false }" class="relative">
-                        <button @click="open = !open" class="flex items-center hover:text-gray-300">
-                            Talk Groups
-                            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                            </svg>
-                        </button>
-                        <div x-show="open" @click.away="open = false" x-cloak
-                             class="absolute left-0 mt-2 w-56 bg-white text-gray-800 rounded shadow-lg py-1 z-50">
-                            {% for tg in favorite_talkgroups %}
-                            <a href="{% url 'talkgroup_detail' slug=tg.slug %}" class="block px-4 py-2 hover:bg-gray-100 truncate">
-                                {{ tg.alpha_tag }}
-                                <span class="text-gray-400 text-xs ml-1">{{ tg.system.name }}</span>
-                            </a>
-                            {% endfor %}
-                            {% if favorite_talkgroups %}
-                            <div class="border-t border-gray-200 mt-1 pt-1"></div>
-                            {% endif %}
-                            <a href="{% url 'talkgroup_list' %}" class="block px-4 py-2 hover:bg-gray-100">All Talkgroups</a>
-                        </div>
-                    </div>
-
-                    <a href="{% url 'incident_list' %}" class="hover:text-gray-300">Incidents</a>
                 </div>
-            </div>
 
-            <div class="flex items-center space-x-4 text-sm">
-                {% if user.is_staff %}
-                <a href="{% url 'admin:index' %}" class="hover:text-gray-300">Admin</a>
-                {% endif %}
-                {% if user.is_authenticated %}
-                <a href="{% url 'profile' %}" class="hover:text-gray-300">{{ user.username }}</a>
-                <a href="{% url 'logout' %}" class="hover:text-gray-300">Logout</a>
-                {% else %}
-                <a href="{% url 'login' %}" class="hover:text-gray-300">Login</a>
-                {% endif %}
+                <div x-data="{ open: false }" class="relative" style="position:relative;">
+                    <button @click="open = !open" class="nav-link flex items-center gap-1">
+                        Talk Groups
+                        <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div x-show="open" @click.away="open = false" x-cloak class="dropdown-menu">
+                        {% for tg in favorite_talkgroups %}
+                        <a href="{% url 'talkgroup_detail' slug=tg.slug %}" class="dropdown-item">
+                            {{ tg.alpha_tag }}
+                            <span class="text-muted text-xs" style="margin-left:var(--space-2);">{{ tg.system.name }}</span>
+                        </a>
+                        {% endfor %}
+                        {% if favorite_talkgroups %}
+                        <div class="dropdown-divider"></div>
+                        {% endif %}
+                        <a href="{% url 'talkgroup_list' %}" class="dropdown-item">All Talkgroups</a>
+                    </div>
+                </div>
+
+                <a href="{% url 'incident_list' %}" class="nav-link">Incidents</a>
             </div>
+        </div>
+
+        <div class="nav-actions">
+            <button class="theme-toggle" aria-label="Toggle theme">&#9790;</button>
+            {% if user.is_staff %}
+            <a href="{% url 'admin:index' %}" class="nav-link">Admin</a>
+            {% endif %}
+            {% if user.is_authenticated %}
+            <a href="{% url 'profile' %}" class="nav-link">{{ user.username }}</a>
+            <a href="{% url 'logout' %}" class="nav-link">Logout</a>
+            {% else %}
+            <a href="{% url 'login' %}" class="nav-link">Login</a>
+            {% endif %}
         </div>
     </nav>
 
     <!-- Mobile menu dropdown -->
     <div x-show="mobileOpen" x-cloak @click.away="mobileOpen = false"
-         class="md:hidden fixed top-12 left-0 right-0 bg-gray-800 text-white z-40 border-t border-gray-700"
+         class="mobile-menu" id="mobile-menu"
          x-data="{ scanOpen: false, tgOpen: false }">
-        <div class="max-w-7xl mx-auto px-3 py-2">
-            <!-- Scan Lists -->
-            <div class="border-b border-gray-700 pb-2 mb-2">
-                <button @click="scanOpen = !scanOpen" class="w-full flex items-center justify-between py-2 text-sm">
-                    Scan Lists
-                    <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': scanOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                    </svg>
-                </button>
-                <div x-show="scanOpen" x-cloak class="pl-4 space-y-1">
-                    {% for sl in user_scanlists %}
-                    <a href="{% url 'scanlist_detail' slug=sl.slug %}" class="block py-1 text-sm text-gray-300 hover:text-white truncate">
-                        {{ sl.name }}
-                    </a>
-                    {% endfor %}
-                    {% if user_scanlists %}
-                    <div class="border-t border-gray-600 my-1"></div>
-                    {% endif %}
-                    <a href="{% url 'scanlist_list' %}" class="block py-1 text-sm text-gray-300 hover:text-white">All Scan Lists</a>
-                    <a href="{% url 'scanlist_create' %}" class="block py-1 text-sm text-gray-300 hover:text-white">Create Scan List</a>
-                </div>
+        <div class="mobile-section">
+            <button @click="scanOpen = !scanOpen" class="mobile-toggle">
+                Scan Lists
+                <svg class="chevron-icon" :style="scanOpen && 'transform:rotate(180deg)'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+            <div x-show="scanOpen" x-cloak class="mobile-submenu">
+                {% for sl in user_scanlists %}
+                <a href="{% url 'scanlist_detail' slug=sl.slug %}">{{ sl.name }}</a>
+                {% endfor %}
+                {% if user_scanlists %}
+                <div class="dropdown-divider"></div>
+                {% endif %}
+                <a href="{% url 'scanlist_list' %}">All Scan Lists</a>
+                <a href="{% url 'scanlist_create' %}">Create Scan List</a>
             </div>
-
-            <!-- Talk Groups -->
-            <div class="border-b border-gray-700 pb-2 mb-2">
-                <button @click="tgOpen = !tgOpen" class="w-full flex items-center justify-between py-2 text-sm">
-                    Talk Groups
-                    <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': tgOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                    </svg>
-                </button>
-                <div x-show="tgOpen" x-cloak class="pl-4 space-y-1">
-                    {% for tg in favorite_talkgroups %}
-                    <a href="{% url 'talkgroup_detail' slug=tg.slug %}" class="block py-1 text-sm text-gray-300 hover:text-white truncate">
-                        {{ tg.alpha_tag }}
-                        <span class="text-gray-500 text-xs ml-1">{{ tg.system.name }}</span>
-                    </a>
-                    {% endfor %}
-                    {% if favorite_talkgroups %}
-                    <div class="border-t border-gray-600 my-1"></div>
-                    {% endif %}
-                    <a href="{% url 'talkgroup_list' %}" class="block py-1 text-sm text-gray-300 hover:text-white">All Talkgroups</a>
-                </div>
-            </div>
-
-            <!-- Incidents -->
-            <a href="{% url 'incident_list' %}" class="block py-2 text-sm hover:text-gray-300">Incidents</a>
         </div>
+
+        <div class="mobile-section">
+            <button @click="tgOpen = !tgOpen" class="mobile-toggle">
+                Talk Groups
+                <svg class="chevron-icon" :style="tgOpen && 'transform:rotate(180deg)'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+            <div x-show="tgOpen" x-cloak class="mobile-submenu">
+                {% for tg in favorite_talkgroups %}
+                <a href="{% url 'talkgroup_detail' slug=tg.slug %}">
+                    {{ tg.alpha_tag }}
+                    <span class="text-muted text-xs">{{ tg.system.name }}</span>
+                </a>
+                {% endfor %}
+                {% if favorite_talkgroups %}
+                <div class="dropdown-divider"></div>
+                {% endif %}
+                <a href="{% url 'talkgroup_list' %}">All Talkgroups</a>
+            </div>
+        </div>
+
+        <a href="{% url 'incident_list' %}" class="mobile-toggle" style="border-bottom:none;">Incidents</a>
     </div>
     </div>
 
     <!-- Main content -->
-    <main class="pt-12">
+    <main class="page-body">
         {% if messages %}
-        <div class="max-w-7xl mx-auto px-3 py-2">
+        <div class="container" style="margin-bottom:var(--space-4);">
             {% for message in messages %}
-            <div class="px-3 py-2 rounded text-sm {% if message.tags == 'error' %}bg-red-100 text-red-800{% elif message.tags == 'success' %}bg-green-100 text-green-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+            <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %}">
                 {{ message }}
             </div>
             {% endfor %}
@@ -184,11 +255,23 @@
         {% block content %}{% endblock %}
     </main>
 
-    {% block extra_js %}{% endblock %}
-
     <!-- Footer -->
-    <footer class="text-center text-xs text-gray-400 py-4">
+    <footer class="text-center text-xs text-muted" style="padding:var(--space-6) 0;">
         v2.0.1
     </footer>
+    </div>
+
+    <script src="{% static 'js/theme-toggle.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+
+    <style>
+        @media (max-width: 768px) {
+            #desktop-nav { display: none !important; }
+            #mobile-menu-btn { display: inline-flex !important; }
+        }
+        @media (min-width: 769px) {
+            #mobile-menu { display: none !important; }
+        }
+    </style>
 </body>
 </html>
