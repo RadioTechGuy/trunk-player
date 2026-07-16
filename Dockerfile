@@ -28,7 +28,7 @@ COPY . .
 # Create non-root user
 RUN useradd -m -r appuser && \
     chown -R appuser:appuser /app
-USER appuser
+#USER appuser
 
 # Expose port
 EXPOSE 8000

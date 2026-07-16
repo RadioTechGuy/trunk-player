@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load radio_extras %}
+{% load radio_js_config %}
+{% trunkplayer_js_config request.user as js_config %}
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% get_setting 'SITE_TITLE' %}</title>
+<script>
+js_config = {{ js_config|safe }}
+</script>
+{% block pre-head %}{% endblock %}
+
+<link href="/apple-touch-icon.png" rel="apple-touch-icon" />
+<link href="/apple-touch-icon-76x76.png" rel="apple-touch-icon" sizes="76x76" />
+<link href="/apple-touch-icon-120x120.png" rel="apple-touch-icon" sizes="120x120" />
+<link href="/apple-touch-icon-152x152.png" rel="apple-touch-icon" sizes="152x152" />
+<link href="/apple-touch-icon-180x180.png" rel="apple-touch-icon" sizes="180x180" />
+<link href="/icon-hires.png" rel="icon" sizes="192x192" />
+<link href="/icon-normal.png" rel="icon" sizes="128x128" />
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jplayer/2.9.2/jplayer/jquery.jplayer.js"></script> 
+<script src="https://use.fontawesome.com/c792248a2e.js"></script>
+{% get_setting 'OPEN_SITE' as open_site %}
+{% if request.user.is_authenticated or open_site %}
+<script src="/static/radio/js/trunkplayer.js?ver=0.8"></script>
+<script src="/static/radio/js/reconnecting-websocket.min.js"></script>
+<script src="/static/radio/js/live_calls2.js?ver=0.5"></script>
+{% endif %}
+<link rel="stylesheet" href="/static/radio/css/trunkplayer.css?ver=0.5"> 
+{% get_setting 'COLOR_CSS' as color_css %}
+{% if color_css %}
+<link rel="stylesheet" href="/static/radio/css/{{ color_css }}">
+{% endif %}
+
+{% block head %}{% endblock %}
+</head>
+<body>
+{% block main-nav %}
+{% include "radio/site_live_nav.html" %}
+{% endblock %}
+{% block main-body %}{% endblock %}
+{% block main-footer %}
+{% include "radio/site_footer.html" %}
+{% endblock %}
+{% block google-analytics %}
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+  ga('create', '{% get_setting 'GOOGLE_ANALYTICS_PROPERTY_ID' %}', 'auto');
+  ga('send', 'pageview');
+
+</script>
+{% endblock %}
+</body>
+</html>                                		

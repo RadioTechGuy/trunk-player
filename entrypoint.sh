@@ -11,6 +11,12 @@ then
     python utility/trunk-player/db_check_create.py
     python manage.py migrate
 fi
+if [[ "$RUN_DEVSERVER" -eq 1 ]]
+then
+    echo "RUN_DEVSERVER Enabled"
+    python manage.py runserver
+    exit 0
+fi
 python manage.py collectstatic --noinput
 echo "redis"
 redis-server --daemonize yes

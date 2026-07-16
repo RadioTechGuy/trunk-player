@@ -13,7 +13,7 @@ services:
     build:
       context: .
     ports:
-      - "8001:8000"
+      - "8012:8000"
     volumes:
       - .:/app
     # command: 
@@ -26,6 +26,7 @@ services:
       - SQL_PASSWORD=password1234
       - SQL_HOST=db
       - MIGRATE_DB=1
+      - RUN_DEVSERVER=1
     depends_on:
       - db
 
